@@ -8,7 +8,7 @@
         </div>
         <h1 class="text-sm font-black tracking-wide bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent shrink-0">ZeroQuant 智脑做 T 大盘</h1>
 
-        <!-- 标的抽拉折叠开关组件 (移动端自适应 Width) -->
+        <!-- 标的抽拉折叠开关组件 (移动端定位防溢出) -->
         <div class="relative shrink-0">
           <button
             @click="isDrawerOpen = !isDrawerOpen"
@@ -19,11 +19,11 @@
             <el-icon class="transition-transform duration-300" :class="{ 'rotate-180': isDrawerOpen }"><ArrowDown /></el-icon>
           </button>
 
-          <!-- 抽拉式折叠面板 Drawer Dropdown (移动端自适应宽) -->
+          <!-- 抽拉式折叠面板 Drawer Dropdown (移动端精准固定 viewport 防横向滚动) -->
           <transition name="el-zoom-in-top">
             <div
               v-if="isDrawerOpen"
-              class="absolute top-9 left-0 w-72 sm:w-80 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl shadow-2xl p-2.5 z-50 space-y-1.5"
+              class="fixed sm:absolute top-14 left-3 right-3 sm:left-0 sm:right-auto sm:w-80 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl shadow-2xl p-2.5 z-50 space-y-1.5"
             >
               <div class="text-[10px] text-slate-400 font-mono px-2 mb-1 flex justify-between">
                 <span>切换做 T 追踪股票 (全量6支)</span>

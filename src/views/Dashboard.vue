@@ -152,20 +152,22 @@
             <span>{{ selectedStock.name }} 盘中关键位</span>
           </h3>
 
-          <div class="grid grid-cols-3 gap-1.5 sm:gap-2 font-mono text-xs">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 font-mono text-xs">
             <div class="bg-slate-950/60 p-1.5 sm:p-2 rounded-xl border border-slate-800 text-center">
-              <div class="text-[10px] text-slate-400">低吸支撑</div>
-              <div class="text-emerald-400 font-bold text-xs mt-0.5">¥{{ selectedStock.predictedLow.toFixed(2) }}</div>
+              <div class="text-[10px] text-slate-400">昨收价</div>
+              <div class="text-slate-200 font-bold text-xs mt-0.5">¥{{ selectedStock.yesterdayPrice.toFixed(2) }}</div>
             </div>
             <div class="bg-slate-950/60 p-1.5 sm:p-2 rounded-xl border border-slate-800 text-center">
-              <div class="text-[10px] text-slate-400">高抛阻力</div>
-              <div class="text-red-400 font-bold text-xs mt-0.5">¥{{ selectedStock.predictedHigh.toFixed(2) }}</div>
+              <div class="text-[10px] text-slate-400">今开价</div>
+              <div class="text-cyan-400 font-bold text-xs mt-0.5">¥{{ selectedStock.currentPrice.toFixed(2) }}</div>
             </div>
             <div class="bg-slate-950/60 p-1.5 sm:p-2 rounded-xl border border-slate-800 text-center">
-              <div class="text-[10px] text-slate-400">做 T 振幅</div>
-              <div class="text-amber-400 font-bold text-xs mt-0.5">
-                ¥{{ (selectedStock.highPrice - selectedStock.lowPrice).toFixed(2) }}
-              </div>
+              <div class="text-[10px] text-slate-400">最高价</div>
+              <div class="text-red-400 font-bold text-xs mt-0.5">¥{{ selectedStock.highPrice.toFixed(2) }}</div>
+            </div>
+            <div class="bg-slate-950/60 p-1.5 sm:p-2 rounded-xl border border-slate-800 text-center">
+              <div class="text-[10px] text-slate-400">最低价</div>
+              <div class="text-emerald-400 font-bold text-xs mt-0.5">¥{{ selectedStock.lowPrice.toFixed(2) }}</div>
             </div>
           </div>
 
@@ -233,60 +235,29 @@
         </div>
       </div>
 
-      <!-- 维度1 & 维度3：Level-2 逐笔大单明细与 30/100天做T历史回测盈亏看板 -->
-      <div v-if="selectedStock" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <!-- 维度1：Level-2 逐笔大单 (>1000手) 与盘口压单/托盘监控 -->
-        <div class="glass-card p-3 sm:p-4 border border-slate-800 space-y-2">
-          <h3 class="text-xs sm:text-sm font-extrabold text-cyan-400 border-b border-slate-800 pb-2 flex items-center justify-between">
-            <span class="flex items-center gap-1.5"><el-icon><Monitor /></el-icon>{{ selectedStock.name }} Level-2 逐笔大单 (≥1000手) 监控</span>
-            <span class="text-[10px] font-mono text-slate-400">实时捕捉托盘买单与冰山压单</span>
-          </h3>
+      <!-- Level-2 逐笔大单 (≥1000手) 监控面板 (全屏宽) -->
+      <div v-if="selectedStock" class="glass-card p-3 sm:p-4 border border-slate-800 space-y-2">
+        <h3 class="text-xs sm:text-sm font-extrabold text-cyan-400 border-b border-slate-800 pb-2 flex items-center justify-between">
+          <span class="flex items-center gap-1.5"><el-icon><Monitor /></el-icon>{{ selectedStock.name }} Level-2 逐笔大单 (≥1000手) 实时追踪</span>
+          <span class="text-[10px] font-mono text-slate-400">精确记录：席位名称 / 精确秒级时间 / 委托成交价格 / 拆单手数与股数</span>
+        </h3>
 
-          <div v-if="l2Orders.length > 0" class="space-y-2 text-[11px] max-h-48 overflow-y-auto no-scrollbar">
-            <div v-for="(ord, i) in l2Orders" :key="i" class="p-2 rounded-xl border flex items-center justify-between"
-              :class="ord.type === '托盘买单' ? 'bg-emerald-950/30 border-emerald-500/30' : 'bg-red-950/30 border-red-500/30'">
-              <div class="flex items-center gap-2">
-                <span class="font-mono text-slate-400">{{ ord.timeStr }}</span>
-                <span class="font-bold px-1.5 py-0.5 rounded text-[10px]"
-                  :class="ord.type === '托盘买单' ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'">
-                  {{ ord.type }}
-                </span>
-                <span class="font-mono font-bold text-white">¥{{ ord.price.toFixed(2) }}</span>
-                <span class="font-mono text-amber-400 font-bold">({{ ord.volumeLots }}手)</span>
-              </div>
-              <div class="text-slate-300 text-[10px] truncate max-w-[200px]">{{ ord.note }}</div>
+        <div v-if="l2Orders.length > 0" class="space-y-2 text-[11px] max-h-56 overflow-y-auto no-scrollbar">
+          <div v-for="(ord, i) in l2Orders" :key="i" class="p-2.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-1.5"
+            :class="ord.type.includes('买入') ? 'bg-emerald-950/30 border-emerald-500/30' : 'bg-red-950/30 border-red-500/30'">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="font-mono text-cyan-300 font-bold bg-slate-900 px-2 py-0.5 rounded border border-slate-800">{{ ord.timeStr }}</span>
+              <span class="font-bold px-2 py-0.5 rounded text-[10px]"
+                :class="ord.type.includes('买入') ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'">
+                {{ ord.type }}
+              </span>
+              <span class="font-mono font-bold text-white text-xs">¥{{ ord.price.toFixed(2) }}</span>
+              <span class="font-mono text-amber-400 font-bold">({{ ord.volumeLots }}手)</span>
             </div>
-          </div>
-          <div v-else class="text-xs text-slate-500 text-center py-6">盘中暂未触发 Level-2 异动大单</div>
-        </div>
-
-        <!-- 维度3：做T历史回测累积收益率看板 -->
-        <div class="glass-card p-3 sm:p-4 border border-slate-800 space-y-2">
-          <h3 class="text-xs sm:text-sm font-extrabold text-emerald-400 border-b border-slate-800 pb-2 flex items-center justify-between">
-            <span class="flex items-center gap-1.5"><el-icon><TrendCharts /></el-icon>{{ selectedStock.name }} 30天/100天做 T 累积净收益率看板</span>
-            <span v-if="backtest30d" class="text-[11px] font-mono text-emerald-300 font-bold">
-              30天累积净收益: +{{ backtest30d.cumRoi }}% (胜率 {{ backtest30d.winRate }}%)
-            </span>
-          </h3>
-
-          <div v-if="backtest30d" class="grid grid-cols-3 gap-2 text-center text-xs font-mono py-2">
-            <div class="bg-slate-950/60 p-2 rounded-xl border border-slate-800">
-              <div class="text-[10px] text-slate-400">30日累积做T收益</div>
-              <div class="text-emerald-400 font-bold text-sm mt-0.5">+{{ backtest30d.cumRoi }}%</div>
-            </div>
-            <div class="bg-slate-950/60 p-2 rounded-xl border border-slate-800">
-              <div class="text-[10px] text-slate-400">平均日内差价收益</div>
-              <div class="text-cyan-400 font-bold text-sm mt-0.5">+0.48%</div>
-            </div>
-            <div class="bg-slate-950/60 p-2 rounded-xl border border-slate-800">
-              <div class="text-[10px] text-slate-400">算法做T实操胜率</div>
-              <div class="text-amber-400 font-bold text-sm mt-0.5">{{ backtest30d.winRate }}%</div>
-            </div>
-          </div>
-          <div class="text-[10px] text-slate-400 leading-relaxed bg-slate-950/60 p-2 rounded-xl">
-            💡 <b>收益回测声明：</b>以上收益率严格基于 ZeroQuant 四大动态分支策略在过去 30 个交易日扣除印花税与佣金后累积精算，用真实收益曲线验证算法的持续演进。
+            <div class="text-slate-300 text-[11px] leading-snug">{{ formatText(ord.note) }}</div>
           </div>
         </div>
+        <div v-else class="text-xs text-slate-500 text-center py-6">盘中暂未触发 Level-2 异动大单</div>
       </div>
 
       <!-- 下方：全量做 T 四大动态分支与踩空/被套应对预案面板 (移动端响应式 Grid) -->

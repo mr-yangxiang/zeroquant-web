@@ -52,9 +52,8 @@
       </div>
 
       <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
-        <!-- 交易日与区间日期选择器 DatePicker (优化美观度与提示) -->
+        <!-- 交易日与区间日期选择器 DatePicker (仅保留 DatePicker 内部原生 Icon) -->
         <div class="flex items-center gap-1.5 bg-slate-900/90 border border-cyan-500/40 rounded-xl px-2 py-1 shadow-md shadow-cyan-500/10">
-          <el-icon class="text-cyan-400 text-xs"><Calendar /></el-icon>
           <span class="text-[10px] font-mono text-cyan-300 font-bold hidden sm:inline">复盘日期:</span>
           <el-date-picker
             v-model="selectedDate"
@@ -97,6 +96,21 @@
                 <span>{{ selectedStock.name }} ({{ selectedStock.code }}) 多维折线重叠对比</span>
                 <span class="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 border border-cyan-800/60 px-2 py-0.5 rounded-full">
                   {{ selectedDate }}
+                </span>
+
+                <!-- 开盘前 10min 09:20 终极看涨/看跌幅度 Badge -->
+                <span v-if="basePrediction"
+                  class="text-[10px] font-mono font-black px-2 py-0.5 rounded-full border shadow-sm flex items-center gap-1"
+                  :class="basePrediction.direction === '看涨' ? 'bg-red-950/90 border-red-500/80 text-red-400' : 'bg-emerald-950/90 border-emerald-500/80 text-emerald-400'">
+                  <span>09:20 终极预判:</span>
+                  <span>{{ basePrediction.direction }} {{ basePrediction.targetPct >= 0 ? '+' : '' }}{{ basePrediction.targetPct }}%</span>
+                </span>
+
+                <!-- 重新模拟新版本预测 Badge (值二, 值三...) -->
+                <span v-for="p in versionPredictions" :key="p.version"
+                  class="text-[10px] font-mono font-black px-2 py-0.5 rounded-full border bg-purple-950/90 border-purple-500/80 text-purple-300">
+                  <span>值{{ p.version }}:</span>
+                  <span>{{ p.direction || '看涨' }} {{ p.targetPct >= 0 ? '+' : '' }}{{ p.targetPct || 1.2 }}%</span>
                 </span>
               </h2>
               <p class="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 leading-snug">① 09:20 终极基准预判线 (开盘前10min终极固定实线) ② 提前5min动态修正线 ③ 重模拟对比线 ④ 真实开盘轨迹 (红实线)</p>
@@ -174,6 +188,36 @@
         </div>
       </div>
 
+      <!-- 每日龙虎榜 / 大宗交易与机构持仓复盘面板 -->
+      <div v-if="dailyReview" class="glass-card p-3 sm:p-4 border border-slate-800 space-y-2">
+        <h3 class="text-xs sm:text-sm font-extrabold text-cyan-400 border-b border-slate-800 pb-2 flex items-center gap-1.5">
+          <el-icon><Tickets /></el-icon>
+          <span>{{ selectedStock.name }} 每日龙虎榜大宗交易与机构持仓复盘</span>
+        </h3>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 text-[11px]">
+          <div class="p-2.5 sm:p-3 rounded-xl bg-slate-900/80 border border-slate-800/80">
+            <div class="font-bold text-amber-400 text-xs mb-1">🏛️ 1. 席位与大宗买卖明细</div>
+            <div class="text-slate-300 leading-relaxed">{{ dailyReview.blockTrades }}</div>
+          </div>
+
+          <div class="p-2.5 sm:p-3 rounded-xl bg-slate-900/80 border border-slate-800/80">
+            <div class="font-bold text-cyan-400 text-xs mb-1">📊 2. 机构与外资持股比例</div>
+            <div class="text-slate-300 leading-relaxed">{{ dailyReview.holdingRatio }}</div>
+          </div>
+
+          <div class="p-2.5 sm:p-3 rounded-xl bg-slate-900/80 border border-slate-800/80">
+            <div class="font-bold text-purple-400 text-xs mb-1">⚡ 3. 主控风格与行为特征</div>
+            <div class="text-slate-300 leading-relaxed">{{ dailyReview.institutionStyle }}</div>
+          </div>
+
+          <div class="p-2.5 sm:p-3 rounded-xl bg-slate-900/80 border border-slate-800/80">
+            <div class="font-bold text-emerald-400 text-xs mb-1">💡 4. 推荐明日操作与仓位</div>
+            <div class="text-slate-300 leading-relaxed">{{ dailyReview.tomorrowAdvice }}</div>
+          </div>
+        </div>
+      </div>
+
       <!-- 下方：全量做 T 四大动态分支与踩空/被套应对预案面板 (移动端响应式 Grid) -->
       <div v-if="selectedStock && currentAnalysis" class="glass-card p-3 sm:p-4 border border-slate-800">
         <h3 class="text-xs sm:text-sm font-extrabold text-red-400 mb-3 flex items-center gap-1.5 border-b border-slate-800 pb-2">
@@ -242,6 +286,20 @@ const hasDeviated = ref(false)
 const currentAnalysis = computed(() => {
   if (!selectedStock.value || !selectedStock.value.analyses || selectedStock.value.analyses.length === 0) return null
   return selectedStock.value.analyses[0]
+})
+
+const basePrediction = computed(() => {
+  if (!advancedHistory.value.predictions || advancedHistory.value.predictions.length === 0) return null
+  return advancedHistory.value.predictions.find((p: any) => p.isBase) || advancedHistory.value.predictions[0]
+})
+
+const versionPredictions = computed(() => {
+  if (!advancedHistory.value.predictions) return []
+  return advancedHistory.value.predictions.filter((p: any) => !p.isBase)
+})
+
+const dailyReview = computed(() => {
+  return advancedHistory.value.dailyReview || null
 })
 
 const fetchStockList = async () => {

@@ -140,6 +140,15 @@
           </div>
 
           <div v-if="currentAnalysis" class="space-y-2 text-[11px]">
+            <!-- 新增：核心主控席位与历史行为观察 -->
+            <div class="bg-cyan-950/40 border border-cyan-500/30 p-2.5 rounded-xl">
+              <div class="text-cyan-400 font-bold mb-0.5 flex items-center gap-1">
+                <el-icon><User /></el-icon>
+                <span>【核心主控席位与盘口行为观察】</span>
+              </div>
+              <div class="text-cyan-200/90 leading-snug">{{ currentAnalysis.hostStyle }}</div>
+            </div>
+
             <div class="bg-emerald-950/40 border border-emerald-500/30 p-2.5 rounded-xl">
               <div class="text-emerald-400 font-bold mb-0.5 flex items-center gap-1">
                 <el-icon><Select /></el-icon>
@@ -156,8 +165,8 @@
               <div class="text-red-200/90 leading-snug">{{ currentAnalysis.dontReasons }}</div>
             </div>
 
-            <div class="bg-slate-950/80 p-2 rounded-xl border border-slate-800/80">
-              <div class="text-slate-400 font-bold mb-0.5">【筹码分布与解套线】</div>
+            <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800/80">
+              <div class="text-slate-400 font-bold mb-0.5">【筹码密集峰与未来托盘依据】</div>
               <div class="text-slate-200 leading-snug">{{ currentAnalysis.chipAnalysis }}</div>
             </div>
           </div>

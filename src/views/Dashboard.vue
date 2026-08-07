@@ -147,7 +147,7 @@
                 <el-icon><User /></el-icon>
                 <span>【核心主控席位与 500 日分时习惯分析】</span>
               </div>
-              <div class="text-cyan-200/90 leading-snug whitespace-pre-line">{{ currentAnalysis.hostStyle }}</div>
+              <div class="text-cyan-200/90 leading-snug whitespace-pre-line">{{ formatText(currentAnalysis.hostStyle) }}</div>
             </div>
 
             <div class="bg-emerald-950/40 border border-emerald-500/30 p-2.5 rounded-xl">
@@ -155,7 +155,7 @@
                 <el-icon><Select /></el-icon>
                 <span>【推荐买入/做T理由】</span>
               </div>
-              <div class="text-emerald-200/90 leading-snug whitespace-pre-line">{{ currentAnalysis.doReasons }}</div>
+              <div class="text-emerald-200/90 leading-snug whitespace-pre-line">{{ formatText(currentAnalysis.doReasons) }}</div>
             </div>
 
             <div class="bg-red-950/40 border border-red-500/30 p-2.5 rounded-xl">
@@ -163,12 +163,12 @@
                 <el-icon><CloseBold /></el-icon>
                 <span>【不推荐/禁忌操作】</span>
               </div>
-              <div class="text-red-200/90 leading-snug whitespace-pre-line">{{ currentAnalysis.dontReasons }}</div>
+              <div class="text-red-200/90 leading-snug whitespace-pre-line">{{ formatText(currentAnalysis.dontReasons) }}</div>
             </div>
 
             <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800/80">
               <div class="text-slate-400 font-bold mb-0.5">【全天波动预测依据与时间切片】</div>
-              <div class="text-slate-200 leading-snug whitespace-pre-line">{{ currentAnalysis.chipAnalysis }}</div>
+              <div class="text-slate-200 leading-snug whitespace-pre-line">{{ formatText(currentAnalysis.chipAnalysis) }}</div>
             </div>
           </div>
         </div>
@@ -185,25 +185,25 @@
           <!-- 分支一：高卖后不跌反涨 -->
           <div class="p-2.5 sm:p-3 rounded-xl bg-red-950/20 border border-red-900/40">
             <div class="font-bold text-red-400 text-xs mb-1">🚨 1. 高卖后不跌反涨(踩空)</div>
-            <div class="text-slate-300 leading-relaxed">{{ currentAnalysis.scenario1 }}</div>
+            <div class="text-slate-300 leading-relaxed whitespace-pre-line">{{ formatText(currentAnalysis.scenario1) }}</div>
           </div>
 
           <!-- 分支二：高卖后正常回调 -->
           <div class="p-2.5 sm:p-3 rounded-xl bg-cyan-950/20 border border-cyan-900/40">
             <div class="font-bold text-cyan-400 text-xs mb-1">🎯 2. 高卖后正常回调</div>
-            <div class="text-slate-300 leading-relaxed">{{ currentAnalysis.scenario2 }}</div>
+            <div class="text-slate-300 leading-relaxed whitespace-pre-line">{{ formatText(currentAnalysis.scenario2) }}</div>
           </div>
 
           <!-- 分支三：低吸被套 -->
           <div class="p-2.5 sm:p-3 rounded-xl bg-amber-950/20 border border-amber-900/40">
             <div class="font-bold text-amber-400 text-xs mb-1">🛡️ 3. 低吸被套(买完不涨反跌)</div>
-            <div class="text-slate-300 leading-relaxed">{{ currentAnalysis.scenario3 }}</div>
+            <div class="text-slate-300 leading-relaxed whitespace-pre-line">{{ formatText(currentAnalysis.scenario3) }}</div>
           </div>
 
           <!-- 分支四：大跌破位 -->
           <div class="p-3 rounded-xl bg-purple-950/20 border border-purple-900/40">
             <div class="font-bold text-purple-400 text-xs mb-1">⚠️ 4. 深跌破位止损</div>
-            <div class="text-slate-300 leading-relaxed">{{ currentAnalysis.scenario4 }}</div>
+            <div class="text-slate-300 leading-relaxed whitespace-pre-line">{{ formatText(currentAnalysis.scenario4) }}</div>
           </div>
         </div>
       </div>
@@ -417,6 +417,12 @@ const isTradingTime = computed(() => {
   const currentMins = h * 60 + m
   return (currentMins >= 9 * 60 + 15 && currentMins <= 11 * 60 + 30) || (currentMins >= 13 * 60 && currentMins <= 15 * 60)
 })
+
+// 格式化文本中的 \n 或纯换行
+const formatText = (text: string | undefined) => {
+  if (!text) return ''
+  return text.replace(/\\n/g, '\n')
+}
 
 const handleLogout = () => {
   localStorage.removeItem('zeroquant_token')

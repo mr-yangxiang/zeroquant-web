@@ -17,7 +17,7 @@
         <el-form-item>
           <el-input
             v-model="form.phone"
-            placeholder="账号 (15079393100)"
+            placeholder="账号 / 手机号"
             prefix-icon="User"
             class="custom-input"
           />
@@ -26,7 +26,7 @@
           <el-input
             v-model="form.password"
             type="password"
-            placeholder="密码 (admin@15079393100)"
+            placeholder="密码"
             prefix-icon="Lock"
             show-password
             class="custom-input"
@@ -41,10 +41,6 @@
           {{ loading ? '身份验证中...' : '进入做 T 智脑大盘' }}
         </button>
       </el-form>
-
-      <div class="mt-6 text-center text-xs text-slate-500">
-        默认凭据: <span class="font-mono text-cyan-400">15079393100</span> / <span class="font-mono text-cyan-400">admin@15079393100</span>
-      </div>
     </div>
   </div>
 </template>
@@ -58,8 +54,8 @@ import api from '../api'
 const router = useRouter()
 const loading = ref(false)
 const form = ref({
-  phone: '15079393100',
-  password: 'admin@15079393100',
+  phone: '',
+  password: '',
 })
 
 const handleLogin = async () => {

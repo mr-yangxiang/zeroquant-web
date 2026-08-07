@@ -62,6 +62,7 @@
             placeholder="选择日期"
             format="YYYY-MM-DD"
             value-format="YYYY-MM-DD"
+            :clearable="false"
             size="small"
             class="custom-datepicker !w-28 sm:!w-32"
             @change="handleDateChange"
@@ -222,7 +223,9 @@ const router = useRouter()
 const stockList = ref<any[]>([])
 const selectedStock = ref<any>(null)
 const isDrawerOpen = ref(false)
-const selectedDate = ref('2026-08-10')
+
+const defaultDate = '2026-08-10'
+const selectedDate = ref(defaultDate)
 
 const advancedHistory = ref<any>({
   realHistories: [],
@@ -258,7 +261,10 @@ const selectStock = async (stock: any) => {
   await loadAdvancedHistory(stock.code)
 }
 
-const handleDateChange = (val: string) => {
+const handleDateChange = (val: string | null) => {
+  if (!val) {
+    selectedDate.value = defaultDate
+  }
   if (selectedStock.value) {
     loadAdvancedHistory(selectedStock.value.code)
   }
@@ -266,7 +272,8 @@ const handleDateChange = (val: string) => {
 
 const loadAdvancedHistory = async (code: string) => {
   try {
-    const res: any = await api.get(`/stocks/${code}/advanced-history?date=${selectedDate.value}`)
+    const queryDate = selectedDate.value || defaultDate
+    const res: any = await api.get(`/stocks/${code}/advanced-history?date=${queryDate}`)
     advancedHistory.value = res.data || { realHistories: [], predictions: [], rollingPredictions: [] }
     await nextTick()
     renderChart()

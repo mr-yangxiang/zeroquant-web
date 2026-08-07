@@ -1,31 +1,29 @@
 <template>
   <div class="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-    <!-- 顶部 NAVIGATION HEADER -->
-    <header class="h-14 border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-50">
-      <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20">
+    <!-- 顶部 NAVIGATION HEADER (移动端自适应 Height & Flex Wrap) -->
+    <header class="min-h-14 py-2 border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md px-3 md:px-6 flex flex-wrap items-center justify-between sticky top-0 z-50 gap-2">
+      <div class="flex items-center gap-2 md:gap-3 flex-wrap">
+        <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20 shrink-0">
           <el-icon class="text-lg"><DataAnalysis /></el-icon>
         </div>
-        <div>
-          <h1 class="text-sm font-black tracking-wide bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">ZeroQuant 智脑做 T 大盘</h1>
-        </div>
+        <h1 class="text-sm font-black tracking-wide bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent shrink-0">ZeroQuant 智脑做 T 大盘</h1>
 
-        <!-- 标的抽拉折叠开关组件 (Collapsed Drawer / Selector) -->
-        <div class="ml-6 relative">
+        <!-- 标的抽拉折叠开关组件 (移动端自适应 Width) -->
+        <div class="relative shrink-0">
           <button
             @click="isDrawerOpen = !isDrawerOpen"
-            class="flex items-center gap-2 bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 text-xs px-3 py-1.5 rounded-xl transition-all shadow-sm"
+            class="flex items-center gap-1.5 bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 text-xs px-2.5 py-1 rounded-xl transition-all shadow-sm"
           >
-            <span class="text-slate-400">当前标的:</span>
-            <span class="text-cyan-400 font-extrabold">{{ selectedStock ? selectedStock.name : '加载中' }} ({{ selectedStock ? selectedStock.code : '' }})</span>
+            <span class="text-slate-400 hidden sm:inline">当前标的:</span>
+            <span class="text-cyan-400 font-extrabold">{{ selectedStock ? selectedStock.name : '加载中' }} <span class="hidden sm:inline">({{ selectedStock ? selectedStock.code : '' }})</span></span>
             <el-icon class="transition-transform duration-300" :class="{ 'rotate-180': isDrawerOpen }"><ArrowDown /></el-icon>
           </button>
 
-          <!-- 抽拉式折叠面板 Drawer Dropdown -->
+          <!-- 抽拉式折叠面板 Drawer Dropdown (移动端自适应宽) -->
           <transition name="el-zoom-in-top">
             <div
               v-if="isDrawerOpen"
-              class="absolute top-10 left-0 w-80 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl shadow-2xl p-3 z-50 space-y-1.5"
+              class="absolute top-9 left-0 w-72 sm:w-80 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl shadow-2xl p-2.5 z-50 space-y-1.5"
             >
               <div class="text-[10px] text-slate-400 font-mono px-2 mb-1 flex justify-between">
                 <span>切换做 T 追踪股票 (全量6支)</span>
@@ -41,7 +39,7 @@
                 ]"
               >
                 <div>
-                  <span class="font-bold mr-2">{{ s.name }}</span>
+                  <span class="font-bold mr-1.5">{{ s.name }}</span>
                   <span class="text-[10px] text-slate-400 font-mono">{{ s.code }}</span>
                 </div>
                 <div class="font-mono font-bold" :class="s.pct >= 0 ? 'text-red-400' : 'text-emerald-400'">
@@ -53,8 +51,8 @@
         </div>
       </div>
 
-      <div class="flex items-center gap-4">
-        <!-- 交易日与区间日期选择器 DatePicker Range -->
+      <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
+        <!-- 交易日与区间日期选择器 DatePicker -->
         <el-date-picker
           v-model="selectedDate"
           type="date"
@@ -62,75 +60,75 @@
           format="YYYY-MM-DD"
           value-format="YYYY-MM-DD"
           size="small"
-          class="custom-datepicker"
+          class="custom-datepicker !w-32 sm:!w-36"
           @change="handleDateChange"
         />
 
-        <div class="flex items-center gap-2 bg-slate-800/60 border border-slate-700/50 px-3 py-1 rounded-full text-xs">
+        <div class="flex items-center gap-1.5 bg-slate-800/60 border border-slate-700/50 px-2.5 py-1 rounded-full text-[11px] sm:text-xs">
           <span :class="isTradingTime ? 'w-2 h-2 rounded-full bg-emerald-400 animate-ping' : 'w-2 h-2 rounded-full bg-amber-400'"></span>
           <span :class="isTradingTime ? 'text-emerald-400 font-mono font-bold' : 'text-amber-400 font-mono font-bold'">
-            {{ isTradingTime ? '1分钟实盘对冲中' : '非交易时间休眠中' }}
+            {{ isTradingTime ? '1分钟实盘对冲中' : '休眠中' }}
           </span>
         </div>
 
-        <el-button type="danger" plain size="small" circle @click="handleLogout" title="退出登录">
+        <el-button type="danger" plain size="small" circle @click="handleLogout" title="退出登录" class="shrink-0">
           <el-icon><SwitchButton /></el-icon>
         </el-button>
       </div>
     </header>
 
-    <!-- 主体 DASHBOARD BODY (优化屏占比，支持一屏全显) -->
-    <main class="flex-1 p-4 space-y-4 max-w-7xl mx-auto w-full">
+    <!-- 主体 DASHBOARD BODY (移动端 Padding 与 Grid 适配) -->
+    <main class="flex-1 p-3 sm:p-4 space-y-4 max-w-7xl mx-auto w-full">
       
-      <!-- 核心对比区：多维折线图 ECharts + 右侧策略面板 (一屏直达) -->
+      <!-- 核心对比区：多维折线图 ECharts + 右侧策略面板 (移动端 Stacked 响应式) -->
       <div v-if="selectedStock" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         
         <!-- 左侧 2 列：ECharts 多维折线重叠对比大图 -->
-        <div class="lg:col-span-2 glass-card p-4 border border-slate-800 flex flex-col">
-          <div class="flex justify-between items-center mb-2">
+        <div class="lg:col-span-2 glass-card p-3 sm:p-4 border border-slate-800 flex flex-col">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
             <div>
-              <h2 class="text-sm font-extrabold text-white flex items-center gap-2">
-                <span>{{ selectedStock.name }} ({{ selectedStock.code }}) 波动折线多维重叠对比</span>
+              <h2 class="text-xs sm:text-sm font-extrabold text-white flex flex-wrap items-center gap-1.5">
+                <span>{{ selectedStock.name }} ({{ selectedStock.code }}) 多维折线重叠对比</span>
                 <span class="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 border border-cyan-800/60 px-2 py-0.5 rounded-full">
-                  复盘日期：{{ selectedDate }}
+                  {{ selectedDate }}
                 </span>
               </h2>
-              <p class="text-[11px] text-slate-400 mt-0.5">包含：①开盘前全天预判线(241点不可改) ②提前5min动态修正线 ③偏差重模拟对比线 ④真实实盘轨迹</p>
+              <p class="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 leading-snug">①开盘前预判线(241点不可改) ②提前5min动态修正线 ③偏差重模拟对比线 ④真实实盘轨迹</p>
             </div>
             
-            <div class="flex items-center gap-2">
-              <el-button v-if="hasDeviated" type="warning" size="small" @click="handleRePredict">
-                <el-icon class="mr-1"><TrendCharts /></el-icon> 偏差过大：重新模拟新线对比
+            <div class="flex items-center gap-2 self-end sm:self-auto">
+              <el-button v-if="hasDeviated" type="warning" size="small" class="!text-[11px] !px-2" @click="handleRePredict">
+                <el-icon class="mr-1"><TrendCharts /></el-icon> 重新模拟新线
               </el-button>
-              <el-button type="primary" size="small" plain @click="loadAdvancedHistory(selectedStock.code)">
+              <el-button type="primary" size="small" plain class="!text-[11px] !px-2" @click="loadAdvancedHistory(selectedStock.code)">
                 <el-icon class="mr-1"><Refresh /></el-icon> 刷新
               </el-button>
             </div>
           </div>
 
-          <!-- ECharts 容器 (高度微调保证一屏全显) -->
-          <div ref="chartRef" class="w-full h-72"></div>
+          <!-- ECharts 容器 (移动端高度 220px / 桌面端 280px 响应式) -->
+          <div ref="chartRef" class="w-full h-64 sm:h-72"></div>
         </div>
 
         <!-- 右侧 1 列：做 T 关键位与控盘风格 -->
-        <div class="glass-card p-4 border border-slate-800 flex flex-col justify-between space-y-3">
-          <h3 class="text-sm font-extrabold text-cyan-400 border-b border-slate-800 pb-2 flex items-center gap-1.5">
+        <div class="glass-card p-3 sm:p-4 border border-slate-800 flex flex-col justify-between space-y-3">
+          <h3 class="text-xs sm:text-sm font-extrabold text-cyan-400 border-b border-slate-800 pb-2 flex items-center gap-1.5">
             <el-icon><Compass /></el-icon>
             <span>{{ selectedStock.name }} 盘中关键位</span>
           </h3>
 
-          <div class="grid grid-cols-3 gap-2 font-mono text-xs">
-            <div class="bg-slate-950/60 p-2 rounded-xl border border-slate-800 text-center">
+          <div class="grid grid-cols-3 gap-1.5 sm:gap-2 font-mono text-xs">
+            <div class="bg-slate-950/60 p-1.5 sm:p-2 rounded-xl border border-slate-800 text-center">
               <div class="text-[10px] text-slate-400">低吸支撑</div>
-              <div class="text-emerald-400 font-bold text-xs mt-1">¥{{ selectedStock.predictedLow.toFixed(2) }}</div>
+              <div class="text-emerald-400 font-bold text-xs mt-0.5">¥{{ selectedStock.predictedLow.toFixed(2) }}</div>
             </div>
-            <div class="bg-slate-950/60 p-2 rounded-xl border border-slate-800 text-center">
+            <div class="bg-slate-950/60 p-1.5 sm:p-2 rounded-xl border border-slate-800 text-center">
               <div class="text-[10px] text-slate-400">高抛阻力</div>
-              <div class="text-red-400 font-bold text-xs mt-1">¥{{ selectedStock.predictedHigh.toFixed(2) }}</div>
+              <div class="text-red-400 font-bold text-xs mt-0.5">¥{{ selectedStock.predictedHigh.toFixed(2) }}</div>
             </div>
-            <div class="bg-slate-950/60 p-2 rounded-xl border border-slate-800 text-center">
+            <div class="bg-slate-950/60 p-1.5 sm:p-2 rounded-xl border border-slate-800 text-center">
               <div class="text-[10px] text-slate-400">做 T 振幅</div>
-              <div class="text-amber-400 font-bold text-xs mt-1">
+              <div class="text-amber-400 font-bold text-xs mt-0.5">
                 ¥{{ (selectedStock.highPrice - selectedStock.lowPrice).toFixed(2) }}
               </div>
             </div>
@@ -149,28 +147,28 @@
         </div>
       </div>
 
-      <!-- 下方：全量做 T 四大动态分支与踩空/被套应对预案面板 (一屏直视) -->
-      <div v-if="selectedStock && currentAnalysis" class="glass-card p-4 border border-slate-800">
-        <h3 class="text-sm font-extrabold text-red-400 mb-3 flex items-center gap-1.5 border-b border-slate-800 pb-2">
+      <!-- 下方：全量做 T 四大动态分支与踩空/被套应对预案面板 (移动端响应式 Grid) -->
+      <div v-if="selectedStock && currentAnalysis" class="glass-card p-3 sm:p-4 border border-slate-800">
+        <h3 class="text-xs sm:text-sm font-extrabold text-red-400 mb-3 flex items-center gap-1.5 border-b border-slate-800 pb-2">
           <el-icon><Warning /></el-icon>
           <span>{{ selectedStock.name }} 做 T 四大动态分支与踩空/被套应对预案</span>
         </h3>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-[11px]">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 text-[11px]">
           <!-- 分支一：高卖后不跌反涨 -->
-          <div class="p-3 rounded-xl bg-red-950/20 border border-red-900/40">
+          <div class="p-2.5 sm:p-3 rounded-xl bg-red-950/20 border border-red-900/40">
             <div class="font-bold text-red-400 text-xs mb-1">🚨 1. 高卖后不跌反涨(踩空)</div>
             <div class="text-slate-300 leading-relaxed">{{ currentAnalysis.scenario1 }}</div>
           </div>
 
           <!-- 分支二：高卖后正常回调 -->
-          <div class="p-3 rounded-xl bg-cyan-950/20 border border-cyan-900/40">
+          <div class="p-2.5 sm:p-3 rounded-xl bg-cyan-950/20 border border-cyan-900/40">
             <div class="font-bold text-cyan-400 text-xs mb-1">🎯 2. 高卖后正常回调</div>
             <div class="text-slate-300 leading-relaxed">{{ currentAnalysis.scenario2 }}</div>
           </div>
 
           <!-- 分支三：低吸被套 -->
-          <div class="p-3 rounded-xl bg-amber-950/20 border border-amber-900/40">
+          <div class="p-2.5 sm:p-3 rounded-xl bg-amber-950/20 border border-amber-900/40">
             <div class="font-bold text-amber-400 text-xs mb-1">🛡️ 3. 低吸被套(买完不涨反跌)</div>
             <div class="text-slate-300 leading-relaxed">{{ currentAnalysis.scenario3 }}</div>
           </div>
@@ -198,7 +196,7 @@ const router = useRouter()
 const stockList = ref<any[]>([])
 const selectedStock = ref<any>(null)
 const isDrawerOpen = ref(false)
-const selectedDate = ref('2026-08-10') // 默认下一个开盘日
+const selectedDate = ref('2026-08-10')
 
 const advancedHistory = ref<any>({
   realHistories: [],
@@ -254,15 +252,12 @@ const loadAdvancedHistory = async (code: string) => {
 const handleRePredict = async () => {
   if (!selectedStock.value) return
   try {
-    // 重新模拟生成一条新的 Version2 全天预测折线
     const newPoints = []
     const base = selectedStock.value.currentPrice
-    // 生成全天 241 点
     for (let i = 0; i < 241; i++) {
       const timeStr = i < 121 
         ? `${Math.floor(9 + i/60).toString().padStart(2,'0')}:${(i%60).toString().padStart(2,'0')}` 
         : `${Math.floor(13 + (i-121)/60).toString().padStart(2,'0')}:${((i-121)%60).toString().padStart(2,'0')}`
-      newPoints.append
       const wave = Math.sin(i / 10.0) * (base * 0.02)
       newPoints.push({ time: timeStr, price: Number((base + wave).toFixed(2)) })
     }
@@ -279,10 +274,17 @@ const handleRePredict = async () => {
   }
 }
 
+const handleResize = () => {
+  if (chartInstance) {
+    chartInstance.resize()
+  }
+}
+
 const renderChart = () => {
   if (!chartRef.value) return
   if (!chartInstance) {
     chartInstance = echarts.init(chartRef.value, 'dark')
+    window.addEventListener('resize', handleResize)
   }
 
   const data = advancedHistory.value
@@ -291,10 +293,9 @@ const renderChart = () => {
   const timeCategories = basePrediction ? basePrediction.timePoints.map((tp: any) => tp.time) : []
   const basePrices = basePrediction ? basePrediction.timePoints.map((tp: any) => tp.price) : []
 
-  // 组装 Series
   const series: any[] = [
     {
-      name: '① 开盘前全天预判线 (基准不可改)',
+      name: '① 开盘前全天预判线',
       type: 'line',
       smooth: true,
       data: basePrices,
@@ -303,7 +304,6 @@ const renderChart = () => {
     }
   ]
 
-  // ② 重预测版本对比线 (V2, V3...)
   data.predictions.filter((p: any) => !p.isBase).forEach((p: any, idx: number) => {
     const vPrices = p.timePoints.map((tp: any) => tp.price)
     series.push({
@@ -316,18 +316,17 @@ const renderChart = () => {
     })
   })
 
-  // ③ 真实开盘实盘轨迹
   if (data.realHistories && data.realHistories.length > 0) {
     const realPricesMap = new Map(data.realHistories.map((h: any) => [dayjs(h.timestamp).format('HH:mm'), h.realPrice]))
     const realDataArr = timeCategories.map((t: string) => realPricesMap.get(t) || null)
 
     series.push({
-      name: '③ 真实开盘实盘轨迹 (腾讯API)',
+      name: '③ 真实开盘轨迹',
       type: 'line',
       smooth: true,
       data: realDataArr,
       itemStyle: { color: '#ef4444' },
-      lineStyle: { width: 3 },
+      lineStyle: { width: 2.5 },
       areaStyle: {
         color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
           { offset: 0, color: 'rgba(239, 68, 68, 0.25)' },
@@ -343,17 +342,17 @@ const renderChart = () => {
       trigger: 'axis',
       backgroundColor: 'rgba(15, 23, 42, 0.95)',
       borderColor: '#334155',
-      textStyle: { color: '#f8fafc', fontSize: 12 },
+      textStyle: { color: '#f8fafc', fontSize: 11 },
     },
     legend: {
       top: 0,
-      textStyle: { color: '#94a3b8', fontSize: 11 },
+      textStyle: { color: '#94a3b8', fontSize: 10 },
     },
     grid: {
-      left: '3%',
-      right: '4%',
+      left: '2%',
+      right: '3%',
       bottom: '3%',
-      top: '18%',
+      top: '20%',
       containLabel: true,
     },
     xAxis: {
@@ -361,14 +360,14 @@ const renderChart = () => {
       boundaryGap: false,
       data: timeCategories,
       axisLine: { lineStyle: { color: '#334155' } },
-      axisLabel: { color: '#64748b', fontSize: 10 },
+      axisLabel: { color: '#64748b', fontSize: 9 },
     },
     yAxis: {
       type: 'value',
       scale: true,
       axisLine: { lineStyle: { color: '#334155' } },
       splitLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.05)' } },
-      axisLabel: { color: '#64748b' },
+      axisLabel: { color: '#64748b', fontSize: 10 },
     },
     series,
   }
@@ -405,7 +404,10 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (timer) clearInterval(timer)
-  if (chartInstance) chartInstance.dispose()
+  if (chartInstance) {
+    window.removeEventListener('resize', handleResize)
+    chartInstance.dispose()
+  }
 })
 </script>
 

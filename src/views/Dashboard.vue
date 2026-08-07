@@ -145,9 +145,9 @@
             <div class="bg-cyan-950/40 border border-cyan-500/30 p-2.5 rounded-xl">
               <div class="text-cyan-400 font-bold mb-0.5 flex items-center gap-1">
                 <el-icon><User /></el-icon>
-                <span>【核心主控席位与盘口行为观察】</span>
+                <span>【核心主控席位与 500 日分时习惯分析】</span>
               </div>
-              <div class="text-cyan-200/90 leading-snug">{{ currentAnalysis.hostStyle }}</div>
+              <div class="text-cyan-200/90 leading-snug whitespace-pre-line">{{ currentAnalysis.hostStyle }}</div>
             </div>
 
             <div class="bg-emerald-950/40 border border-emerald-500/30 p-2.5 rounded-xl">
@@ -155,7 +155,7 @@
                 <el-icon><Select /></el-icon>
                 <span>【推荐买入/做T理由】</span>
               </div>
-              <div class="text-emerald-200/90 leading-snug">{{ currentAnalysis.doReasons }}</div>
+              <div class="text-emerald-200/90 leading-snug whitespace-pre-line">{{ currentAnalysis.doReasons }}</div>
             </div>
 
             <div class="bg-red-950/40 border border-red-500/30 p-2.5 rounded-xl">
@@ -163,12 +163,12 @@
                 <el-icon><CloseBold /></el-icon>
                 <span>【不推荐/禁忌操作】</span>
               </div>
-              <div class="text-red-200/90 leading-snug">{{ currentAnalysis.dontReasons }}</div>
+              <div class="text-red-200/90 leading-snug whitespace-pre-line">{{ currentAnalysis.dontReasons }}</div>
             </div>
 
             <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800/80">
-              <div class="text-slate-400 font-bold mb-0.5">【筹码密集峰与未来托盘依据】</div>
-              <div class="text-slate-200 leading-snug">{{ currentAnalysis.chipAnalysis }}</div>
+              <div class="text-slate-400 font-bold mb-0.5">【全天波动预测依据与时间切片】</div>
+              <div class="text-slate-200 leading-snug whitespace-pre-line">{{ currentAnalysis.chipAnalysis }}</div>
             </div>
           </div>
         </div>

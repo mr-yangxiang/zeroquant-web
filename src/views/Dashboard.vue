@@ -14,8 +14,10 @@
 
       <div class="flex items-center gap-4">
         <div class="flex items-center gap-2 bg-slate-800/60 border border-slate-700/50 px-3 py-1.5 rounded-full text-xs">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-          <span class="text-emerald-400 font-mono font-bold">1分钟全量轮询激活中</span>
+          <span :class="isTradingTime ? 'w-2 h-2 rounded-full bg-emerald-400 animate-ping' : 'w-2 h-2 rounded-full bg-amber-400'"></span>
+          <span :class="isTradingTime ? 'text-emerald-400 font-mono font-bold' : 'text-amber-400 font-mono font-bold'">
+            {{ isTradingTime ? '1分钟实盘对冲中' : '非交易时间休眠中' }}
+          </span>
         </div>
 
         <el-button type="danger" plain size="small" circle @click="handleLogout" title="退出登录">
@@ -287,6 +289,23 @@ const renderChart = () => {
 
   chartInstance.setOption(option)
 }
+
+const isTradingTime = computed(() => {
+  const now = new Date()
+  const day = now.getDay()
+  if (day === 0 || day === 6) return false
+  
+  const h = now.getHours()
+  const m = now.getMinutes()
+  const currentMins = h * 60 + m
+
+  const m1Start = 9 * 60 + 15
+  const m1End = 11 * 60 + 30
+  const m2Start = 13 * 60
+  const m2End = 15 * 60
+
+  return (currentMins >= m1Start && currentMins <= m1End) || (currentMins >= m2Start && currentMins <= m2End)
+})
 
 const handleLogout = () => {
   localStorage.removeItem('zeroquant_token')

@@ -68,11 +68,11 @@
           />
         </div>
 
-        <!-- 开盘自动秒级倒计时组件 -->
+        <!-- 开盘自动秒级倒计时组件 (智能识别历史复盘 / 09:20预判 / 盘中对冲 / 停盘休眠) -->
         <div class="flex items-center gap-1.5 bg-slate-800/60 border border-slate-700/50 px-2.5 py-1 rounded-full text-[11px] sm:text-xs">
-          <span :class="isTradingTime ? 'w-2 h-2 rounded-full bg-emerald-400 animate-ping' : 'w-2 h-2 rounded-full bg-amber-400'"></span>
-          <span :class="isTradingTime ? 'text-emerald-400 font-mono font-bold' : 'text-amber-400 font-mono font-bold'">
-            {{ isTradingTime ? `秒级对冲 (${countdown}s自动刷新)` : '停盘休眠中' }}
+          <span :class="shouldAutoRefresh ? 'w-2 h-2 rounded-full bg-emerald-400 animate-ping' : isHistoryView ? 'w-2 h-2 rounded-full bg-cyan-400' : 'w-2 h-2 rounded-full bg-amber-400'"></span>
+          <span :class="shouldAutoRefresh ? 'text-emerald-400 font-mono font-bold' : isHistoryView ? 'text-cyan-400 font-mono font-bold' : 'text-amber-400 font-mono font-bold'">
+            {{ isHistoryView ? '🔵 历史复盘 (轨迹固定)' : isPreMarketTime ? `🟢 09:20预判对冲中 (${countdown}s)` : isTradingTime ? `🟢 1min实盘对冲中 (${countdown}s)` : '🟡 停盘休眠中' }}
           </span>
         </div>
 
@@ -128,9 +128,16 @@
               <el-button v-if="hasDeviated" type="warning" size="small" class="!text-[11px] !px-2" @click="handleRePredict">
                 <el-icon class="mr-1"><TrendCharts /></el-icon> 重新模拟新线
               </el-button>
-              <el-button type="primary" size="small" plain class="!text-[11px] !px-2" @click="loadAdvancedHistory(selectedStock.code)">
-                <el-icon class="mr-1"><Refresh /></el-icon> 刷新
-              </el-button>
+              
+              <!-- 科技风发光双向刷新按钮 -->
+              <button
+                @click="loadAdvancedHistory(selectedStock.code)"
+                class="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-xl bg-slate-900/90 border border-cyan-500/50 text-cyan-300 hover:bg-cyan-950/90 hover:border-cyan-400 hover:text-cyan-200 active:scale-95 transition-all shadow-md shadow-cyan-500/10 shrink-0"
+                title="立即手动拉取最新点位"
+              >
+                <el-icon><Refresh /></el-icon>
+                <span>刷新轨迹</span>
+              </button>
             </div>
           </div>
 
@@ -556,14 +563,31 @@ const renderChart = () => {
   chartInstance.setOption(option, true)
 }
 
+const todayDateStr = computed(() => dayjs().format('YYYY-MM-DD'))
+
+const isHistoryView = computed(() => {
+  return selectedDate.value < todayDateStr.value
+})
+
+const isPreMarketTime = computed(() => {
+  const now = new Date()
+  const day = now.getDay()
+  if (day === 0 || day === 6) return false
+  const currentMins = now.getHours() * 60 + now.getMinutes()
+  return currentMins >= 9 * 60 + 15 && currentMins < 9 * 60 + 30
+})
+
 const isTradingTime = computed(() => {
   const now = new Date()
   const day = now.getDay()
   if (day === 0 || day === 6) return false
-  const h = now.getHours()
-  const m = now.getMinutes()
-  const currentMins = h * 60 + m
-  return (currentMins >= 9 * 60 + 15 && currentMins <= 11 * 60 + 30) || (currentMins >= 13 * 60 && currentMins <= 15 * 60)
+  const currentMins = now.getHours() * 60 + now.getMinutes()
+  return (currentMins >= 9 * 60 + 30 && currentMins <= 11 * 60 + 30) || (currentMins >= 13 * 60 && currentMins <= 15 * 60)
+})
+
+const shouldAutoRefresh = computed(() => {
+  if (isHistoryView.value) return false
+  return isTradingTime.value || isPreMarketTime.value
 })
 
 // 格式化文本中的 \n 或纯换行
@@ -584,6 +608,11 @@ const countdown = ref(10)
 onMounted(() => {
   fetchStockList()
   timer = setInterval(() => {
+    if (!shouldAutoRefresh.value) {
+      countdown.value = 10
+      return // 不开盘/看历史数据时直接跳过，零刷新消耗！
+    }
+
     countdown.value--
     if (countdown.value <= 0) {
       countdown.value = 10

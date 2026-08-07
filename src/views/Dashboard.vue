@@ -52,22 +52,27 @@
       </div>
 
       <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
-        <!-- 交易日与区间日期选择器 DatePicker -->
-        <el-date-picker
-          v-model="selectedDate"
-          type="date"
-          placeholder="选择复盘日期"
-          format="YYYY-MM-DD"
-          value-format="YYYY-MM-DD"
-          size="small"
-          class="custom-datepicker !w-32 sm:!w-36"
-          @change="handleDateChange"
-        />
+        <!-- 交易日与区间日期选择器 DatePicker (优化美观度与提示) -->
+        <div class="flex items-center gap-1.5 bg-slate-900/90 border border-cyan-500/40 rounded-xl px-2 py-1 shadow-md shadow-cyan-500/10">
+          <el-icon class="text-cyan-400 text-xs"><Calendar /></el-icon>
+          <span class="text-[10px] font-mono text-cyan-300 font-bold hidden sm:inline">复盘日期:</span>
+          <el-date-picker
+            v-model="selectedDate"
+            type="date"
+            placeholder="选择日期"
+            format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD"
+            size="small"
+            class="custom-datepicker !w-28 sm:!w-32"
+            @change="handleDateChange"
+          />
+        </div>
 
+        <!-- 开盘自动秒级倒计时组件 -->
         <div class="flex items-center gap-1.5 bg-slate-800/60 border border-slate-700/50 px-2.5 py-1 rounded-full text-[11px] sm:text-xs">
           <span :class="isTradingTime ? 'w-2 h-2 rounded-full bg-emerald-400 animate-ping' : 'w-2 h-2 rounded-full bg-amber-400'"></span>
           <span :class="isTradingTime ? 'text-emerald-400 font-mono font-bold' : 'text-amber-400 font-mono font-bold'">
-            {{ isTradingTime ? '1分钟实盘对冲中' : '休眠中' }}
+            {{ isTradingTime ? `秒级对冲 (${countdown}s自动刷新)` : '停盘休眠中' }}
           </span>
         </div>
 
@@ -135,13 +140,25 @@
           </div>
 
           <div v-if="currentAnalysis" class="space-y-2 text-[11px]">
-            <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800/80">
-              <div class="text-slate-400 font-bold mb-0.5">【筹码拆解】</div>
-              <div class="text-slate-200 leading-snug">{{ currentAnalysis.chipAnalysis }}</div>
+            <div class="bg-emerald-950/40 border border-emerald-500/30 p-2.5 rounded-xl">
+              <div class="text-emerald-400 font-bold mb-0.5 flex items-center gap-1">
+                <el-icon><Select /></el-icon>
+                <span>【推荐买入/做T理由】</span>
+              </div>
+              <div class="text-emerald-200/90 leading-snug">{{ currentAnalysis.doReasons }}</div>
             </div>
-            <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800/80">
-              <div class="text-slate-400 font-bold mb-0.5">【主力资金风格】</div>
-              <div class="text-slate-200 leading-snug">{{ currentAnalysis.hostStyle }}</div>
+
+            <div class="bg-red-950/40 border border-red-500/30 p-2.5 rounded-xl">
+              <div class="text-red-400 font-bold mb-0.5 flex items-center gap-1">
+                <el-icon><CloseBold /></el-icon>
+                <span>【不推荐/禁忌操作】</span>
+              </div>
+              <div class="text-red-200/90 leading-snug">{{ currentAnalysis.dontReasons }}</div>
+            </div>
+
+            <div class="bg-slate-950/80 p-2 rounded-xl border border-slate-800/80">
+              <div class="text-slate-400 font-bold mb-0.5">【筹码分布与解套线】</div>
+              <div class="text-slate-200 leading-snug">{{ currentAnalysis.chipAnalysis }}</div>
             </div>
           </div>
         </div>
@@ -392,14 +409,20 @@ const handleLogout = () => {
   router.replace('/login')
 }
 
+const countdown = ref(10)
+
 onMounted(() => {
   fetchStockList()
   timer = setInterval(() => {
-    fetchStockList()
-    if (selectedStock.value) {
-      loadAdvancedHistory(selectedStock.value.code)
+    countdown.value--
+    if (countdown.value <= 0) {
+      countdown.value = 10
+      fetchStockList()
+      if (selectedStock.value) {
+        loadAdvancedHistory(selectedStock.value.code)
+      }
     }
-  }, 10000)
+  }, 1000)
 })
 
 onUnmounted(() => {

@@ -99,7 +99,7 @@
                   {{ selectedDate }}
                 </span>
               </h2>
-              <p class="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 leading-snug">①开盘前预判线(241点不可改) ②提前5min动态修正线 ③偏差重模拟对比线 ④真实实盘轨迹</p>
+              <p class="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 leading-snug">① 09:20 终极基准预判线 (开盘前10min终极固定实线) ② 提前5min动态修正线 ③ 重模拟对比线 ④ 真实开盘轨迹 (红实线)</p>
             </div>
             
             <div class="flex items-center gap-2 self-end sm:self-auto">
@@ -328,19 +328,34 @@ const renderChart = () => {
 
   const series: any[] = [
     {
-      name: '① 开盘前全天预判线',
+      name: '① 09:20 终极基准预判线 (不可修改实线)',
       type: 'line',
       smooth: true,
       data: basePrices,
       itemStyle: { color: '#06b6d4' },
-      lineStyle: { width: 2, type: 'dashed' },
+      lineStyle: { width: 2.5, type: 'solid' }, // 开盘前10min终极固定的基准预判线，必须为【实线 (solid)】！
     }
   ]
 
+  // ② 提前 5 分钟动态修正线
+  if (data.rollingPredictions && data.rollingPredictions.length > 0) {
+    const rollingMap = new Map(data.rollingPredictions.map((r: any) => [r.targetTime, r.predictedPrice]))
+    const rollingDataArr = timeCategories.map((t: string) => rollingMap.get(t) || null)
+    series.push({
+      name: '② 提前 5 分钟动态修正线 (黄虚线)',
+      type: 'line',
+      smooth: true,
+      data: rollingDataArr,
+      itemStyle: { color: '#f59e0b' },
+      lineStyle: { width: 1.5, type: 'dashed' },
+    })
+  }
+
+  // ③ 重预测版本对比线 (V2, V3...)
   data.predictions.filter((p: any) => !p.isBase).forEach((p: any, idx: number) => {
     const vPrices = p.timePoints.map((tp: any) => tp.price)
     series.push({
-      name: `④ 重新模拟修正对比线 (V${p.version})`,
+      name: `③ 重模拟修正对比线 (V${p.version})`,
       type: 'line',
       smooth: true,
       data: vPrices,
@@ -349,17 +364,18 @@ const renderChart = () => {
     })
   })
 
+  // ④ 真实开盘轨迹
   if (data.realHistories && data.realHistories.length > 0) {
     const realPricesMap = new Map(data.realHistories.map((h: any) => [dayjs(h.timestamp).format('HH:mm'), h.realPrice]))
     const realDataArr = timeCategories.map((t: string) => realPricesMap.get(t) || null)
 
     series.push({
-      name: '③ 真实开盘轨迹',
+      name: '④ 真实开盘轨迹 (红实线)',
       type: 'line',
       smooth: true,
       data: realDataArr,
       itemStyle: { color: '#ef4444' },
-      lineStyle: { width: 2.5 },
+      lineStyle: { width: 3, type: 'solid' },
       areaStyle: {
         color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
           { offset: 0, color: 'rgba(239, 68, 68, 0.25)' },

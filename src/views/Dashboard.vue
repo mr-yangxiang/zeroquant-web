@@ -233,6 +233,31 @@
             <div class="text-slate-300 leading-relaxed">{{ dailyReview.tomorrowAdvice }}</div>
           </div>
         </div>
+
+        <!-- 每日预测偏差剖析与算法自我修正总结 -->
+        <div v-if="dailyReview.deviationReason" class="mt-3 p-3 rounded-xl bg-slate-950/80 border border-cyan-500/30 text-[11px] space-y-2">
+          <div class="font-bold text-cyan-400 text-xs border-b border-slate-800/80 pb-1 flex items-center gap-1.5">
+            <el-icon><Notebook /></el-icon>
+            <span>每日预测偏差剖析与算法自我总结复盘 (自动注入后续精算)</span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+            <div class="p-2 rounded-lg bg-red-950/20 border border-red-900/30">
+              <div class="font-bold text-red-400 text-[11px] mb-0.5">🔍 为什么出现预测偏差？</div>
+              <div class="text-slate-300 leading-relaxed">{{ dailyReview.deviationReason }}</div>
+            </div>
+
+            <div class="p-2 rounded-lg bg-amber-950/20 border border-amber-900/30">
+              <div class="font-bold text-amber-400 text-[11px] mb-0.5">🧠 总结出的博弈道理</div>
+              <div class="text-slate-300 leading-relaxed">{{ dailyReview.keyLesson }}</div>
+            </div>
+
+            <div class="p-2 rounded-lg bg-emerald-950/20 border border-emerald-900/30">
+              <div class="font-bold text-emerald-400 text-[11px] mb-0.5">⚙️ 后续算法改进与预判演进</div>
+              <div class="text-slate-300 leading-relaxed">{{ dailyReview.futureAction }}</div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Level-2 逐笔大单 (≥1000手) 监控面板 (全屏宽) -->

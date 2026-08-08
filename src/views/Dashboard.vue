@@ -303,7 +303,12 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import dayjs from 'dayjs'
+import utc from 'dayjs/plugin/utc'
+import timezone from 'dayjs/plugin/timezone'
 import api from '../api'
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
 
 const router = useRouter()
 const stockList = ref<any[]>([])
@@ -476,7 +481,7 @@ const renderChart = () => {
 
   // ④ 真实开盘轨迹
   if (data.realHistories && data.realHistories.length > 0) {
-    const realPricesMap = new Map(data.realHistories.map((h: any) => [dayjs(h.timestamp).format('HH:mm'), h.realPrice]))
+    const realPricesMap = new Map(data.realHistories.map((h: any) => [dayjs.utc(h.timestamp).tz('Asia/Shanghai').format('HH:mm'), h.realPrice]))
     const realDataArr = timeCategories.map((t: string) => realPricesMap.get(t) || null)
 
     series.push({

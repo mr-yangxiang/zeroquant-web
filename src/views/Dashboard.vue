@@ -106,8 +106,8 @@
                   {{ selectedDate }}
                 </span>
 
-                <!-- 开盘前 10min 09:20 终极看涨/看跌幅度 Badge -->
-                <span v-if="basePrediction"
+                <!-- 开盘前 10min 09:20 终极看涨/看跌幅度 Badge (仅在非历史日期显示) -->
+                <span v-if="!isHistoryView && basePrediction"
                   class="text-[10px] font-mono font-black px-2 py-0.5 rounded-full border shadow-sm flex items-center gap-1"
                   :class="basePrediction.direction === '看涨' ? 'bg-red-950/90 border-red-500/80 text-red-400' : 'bg-emerald-950/90 border-emerald-500/80 text-emerald-400'">
                   <span>09:20 终极预判:</span>
@@ -115,7 +115,7 @@
                 </span>
 
                 <!-- 重新模拟新版本预测 Badge (值二, 值三...) -->
-                <span v-for="p in versionPredictions" :key="p.version"
+                <span v-if="!isHistoryView" v-for="p in versionPredictions" :key="p.version"
                   class="text-[10px] font-mono font-black px-2 py-0.5 rounded-full border bg-purple-950/90 border-purple-500/80 text-purple-300">
                   <span>值{{ p.version }}:</span>
                   <span>{{ p.direction || '看涨' }} {{ p.targetPct >= 0 ? '+' : '' }}{{ p.targetPct || 1.2 }}%</span>
@@ -461,56 +461,72 @@ const renderChart = () => {
   }
 
   const data = advancedHistory.value
+  const isHist = isHistoryView.value
   const basePrediction = data.predictions.find((p: any) => p.isBase) || data.predictions[0]
   
-  const timeCategories = basePrediction ? basePrediction.timePoints.map((tp: any) => tp.time) : []
-  const basePrices = basePrediction ? basePrediction.timePoints.map((tp: any) => tp.price) : []
-
-  const series: any[] = [
-    {
-      name: '① 09:20 终极基准预判线 (不可修改实线)',
-      type: 'line',
-      smooth: true,
-      data: basePrices,
-      itemStyle: { color: '#06b6d4' },
-      lineStyle: { width: 2.5, type: 'solid' }, // 开盘前10min终极固定的基准预判线，必须为【实线 (solid)】！
+  // 分时 x 轴 241 分钟
+  let timeCategories: string[] = []
+  if (basePrediction && basePrediction.timePoints) {
+    timeCategories = basePrediction.timePoints.map((tp: any) => tp.time)
+  } else {
+    // 基础 241 分钟
+    for (let i = 0; i < 241; i++) {
+      const timeStr = i < 121 
+        ? `${Math.floor(9 + i/60).toString().padStart(2,'0')}:${(i%60).toString().padStart(2,'0')}` 
+        : `${Math.floor(13 + (i-121)/60).toString().padStart(2,'0')}:${((i-121)%60).toString().padStart(2,'0')}`
+      timeCategories.push(timeStr)
     }
-  ]
+  }
 
-  // ② 提前 5 分钟动态修正线
-  if (data.rollingPredictions && data.rollingPredictions.length > 0) {
-    const rollingMap = new Map(data.rollingPredictions.map((r: any) => [r.targetTime, r.predictedPrice]))
-    const rollingDataArr = timeCategories.map((t: string) => rollingMap.get(t) || null)
-    series.push({
-      name: '② 提前 5 分钟动态修正线 (黄虚线)',
-      type: 'line',
-      smooth: true,
-      data: rollingDataArr,
-      itemStyle: { color: '#f59e0b' },
-      lineStyle: { width: 1.5, type: 'dashed' },
+  const series: any[] = []
+
+  // 仅在非历史过去日期（例如当前/下个交易日）时展示预测折线
+  if (!isHist) {
+    const basePrices = basePrediction ? basePrediction.timePoints.map((tp: any) => tp.price) : []
+    if (basePrices.length > 0) {
+      series.push({
+        name: '① 09:20 终极基准预判线 (不可修改实线)',
+        type: 'line',
+        smooth: true,
+        data: basePrices,
+        itemStyle: { color: '#06b6d4' },
+        lineStyle: { width: 2.5, type: 'solid' },
+      })
+    }
+
+    if (data.rollingPredictions && data.rollingPredictions.length > 0) {
+      const rollingMap = new Map(data.rollingPredictions.map((r: any) => [r.targetTime, r.predictedPrice]))
+      const rollingDataArr = timeCategories.map((t: string) => rollingMap.get(t) || null)
+      series.push({
+        name: '② 提前 5 分钟动态修正线 (黄虚线)',
+        type: 'line',
+        smooth: true,
+        data: rollingDataArr,
+        itemStyle: { color: '#f59e0b' },
+        lineStyle: { width: 1.5, type: 'dashed' },
+      })
+    }
+
+    data.predictions.filter((p: any) => !p.isBase).forEach((p: any, idx: number) => {
+      const vPrices = p.timePoints.map((tp: any) => tp.price)
+      series.push({
+        name: `③ 重模拟修正对比线 (V${p.version})`,
+        type: 'line',
+        smooth: true,
+        data: vPrices,
+        itemStyle: { color: '#a855f7' },
+        lineStyle: { width: 2, type: 'dotted' },
+      })
     })
   }
 
-  // ③ 重预测版本对比线 (V2, V3...)
-  data.predictions.filter((p: any) => !p.isBase).forEach((p: any, idx: number) => {
-    const vPrices = p.timePoints.map((tp: any) => tp.price)
-    series.push({
-      name: `③ 重模拟修正对比线 (V${p.version})`,
-      type: 'line',
-      smooth: true,
-      data: vPrices,
-      itemStyle: { color: '#a855f7' },
-      lineStyle: { width: 2, type: 'dotted' },
-    })
-  })
-
-  // ④ 真实开盘轨迹
+  // 真实开盘轨迹
   if (data.realHistories && data.realHistories.length > 0) {
     const realPricesMap = new Map(data.realHistories.map((h: any) => [dayjs.utc(h.timestamp).tz('Asia/Shanghai').format('HH:mm'), h.realPrice]))
     const realDataArr = timeCategories.map((t: string) => realPricesMap.get(t) || null)
 
     series.push({
-      name: '④ 真实开盘轨迹 (红实线)',
+      name: isHist ? '真实历史开盘轨迹 (红实线)' : '④ 真实开盘轨迹 (红实线)',
       type: 'line',
       smooth: true,
       data: realDataArr,

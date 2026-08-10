@@ -96,9 +96,10 @@
       <!-- 核心对比区：多维折线图 ECharts + 右侧策略面板 (移动端 Stacked 响应式) -->
       <div v-if="selectedStock" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         
-        <!-- 左侧 2 列：ECharts 多维折线重叠对比大图 -->
-        <div class="lg:col-span-2 glass-card p-3 sm:p-4 border border-slate-800 flex flex-col">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+        <!-- 左侧 2 列：ECharts 多维折线重叠对比大图 + 个人实盘仓位战术对策盘 -->
+        <div class="lg:col-span-2 space-y-4">
+          <div class="glass-card p-3 sm:p-4 border border-slate-800 flex flex-col">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
             <div>
               <h2 class="text-xs sm:text-sm font-extrabold text-white flex flex-wrap items-center gap-1.5">
                 <span>{{ selectedStock.name }} ({{ selectedStock.code }}) 多维折线重叠对比</span>
@@ -144,6 +145,103 @@
           <!-- ECharts 容器 (移动端高度 220px / 桌面端 280px 响应式) -->
           <div ref="chartRef" class="w-full h-64 sm:h-72"></div>
         </div>
+
+        <!-- 🎯 个人专属实盘持仓与争分夺秒买卖战术对策盘 -->
+        <div class="glass-card p-3.5 border border-cyan-500/40 bg-slate-950/90 space-y-3 shadow-lg shadow-cyan-500/10">
+          <div class="flex items-center justify-between border-b border-cyan-500/30 pb-2">
+            <div class="flex items-center gap-2">
+              <span class="p-1 rounded-lg bg-cyan-950 text-cyan-400 border border-cyan-500/50"><el-icon><User /></el-icon></span>
+              <span class="font-extrabold text-xs sm:text-sm text-cyan-300">【{{ selectedStock.name }} 个人专属实盘持仓与争分夺秒战术对策盘】</span>
+            </div>
+            <span class="text-[10px] font-mono text-cyan-400/80 bg-cyan-950/60 px-2 py-0.5 rounded-full border border-cyan-800/40">个人专属实时决策</span>
+          </div>
+
+          <!-- 1. 个人持仓与成本设置表单 -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+            <div class="bg-slate-900/90 p-2 rounded-xl border border-slate-800 flex items-center justify-between">
+              <span class="text-slate-400 text-[11px]">底仓持股:</span>
+              <div class="flex items-center gap-1">
+                <input v-model.number="userHoldingShares" type="number" step="100" class="w-20 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-right font-mono text-cyan-300 font-bold focus:outline-none focus:border-cyan-400 text-xs" placeholder="0" />
+                <span class="text-slate-500 text-[10px]">股</span>
+              </div>
+            </div>
+
+            <div class="bg-slate-900/90 p-2 rounded-xl border border-slate-800 flex items-center justify-between">
+              <span class="text-slate-400 text-[11px]">持仓成本:</span>
+              <div class="flex items-center gap-1">
+                <input v-model.number="userCostPrice" type="number" step="0.01" class="w-20 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-right font-mono text-amber-300 font-bold focus:outline-none focus:border-cyan-400 text-xs" placeholder="0.00" />
+                <span class="text-slate-500 text-[10px]">元</span>
+              </div>
+            </div>
+
+            <button @click="saveUserPosition" class="bg-cyan-950 border border-cyan-500/50 hover:bg-cyan-900 text-cyan-300 font-bold py-1.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1 transition-all shadow">
+              <el-icon><Check /></el-icon>
+              <span>锁定/更新个人底仓</span>
+            </button>
+          </div>
+
+          <!-- 2. 争分夺秒：实盘操作一键动作录入 (挂单成交后秒级输入) -->
+          <div class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 space-y-2">
+            <div class="text-[11px] font-bold text-slate-300 flex items-center justify-between">
+              <span>⚡ 争分夺秒一键录入 (刚刚完成的挂单成交动作)：</span>
+              <span class="text-[10px] text-slate-400 font-normal">秒级录入 ➔ 瞬间触发专属战术应变卡片</span>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
+                <span class="text-[10px] text-slate-400">动作:</span>
+                <select v-model="tradeActionType" class="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer">
+                  <option value="BUY" class="bg-slate-900 text-red-400">🔴 我刚刚挂单买入 (BUY)</option>
+                  <option value="SELL" class="bg-slate-900 text-emerald-400">🟢 我刚刚挂单卖出 (SELL)</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
+                <span class="text-[10px] text-slate-400">成交价:</span>
+                <input v-model.number="tradePrice" type="number" step="0.01" class="w-16 bg-transparent text-xs font-mono font-bold text-cyan-300 focus:outline-none" :placeholder="selectedStock.currentPrice.toFixed(2)" />
+                <span class="text-[10px] text-slate-500">元</span>
+              </div>
+
+              <div class="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
+                <span class="text-[10px] text-slate-400">数量:</span>
+                <input v-model.number="tradeShares" type="number" step="100" class="w-16 bg-transparent text-xs font-mono font-bold text-cyan-300 focus:outline-none" placeholder="1000" />
+                <span class="text-[10px] text-slate-500">股</span>
+              </div>
+
+              <button @click="submitTradeAction" class="bg-red-950 border border-red-500/60 hover:bg-red-900 text-red-300 font-bold px-3 py-1 rounded-lg text-xs flex items-center gap-1 transition-all shadow">
+                <el-icon><Lightning /></el-icon>
+                <span>秒级提交并精算战术</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 3. 专属战术应变诊断与操作指示卡片 (实时算得：卖飞/买高/止损/补仓对策) -->
+          <div class="p-3 rounded-xl border text-xs space-y-1.5" :class="tacticalAdvice.cardClass">
+            <div class="font-bold flex items-center justify-between border-b pb-1.5" :class="tacticalAdvice.titleClass">
+              <span class="flex items-center gap-1.5">
+                <el-icon><Aim /></el-icon>
+                <span>{{ tacticalAdvice.title }}</span>
+              </span>
+              <span class="text-[10px] font-mono opacity-80">依据个人持仓与实时盘口动态精算</span>
+            </div>
+            <div class="leading-relaxed font-sans" :class="tacticalAdvice.textClass">
+              {{ tacticalAdvice.content }}
+            </div>
+          </div>
+
+          <!-- 4. 当日操作历史追踪流水 -->
+          <div v-if="userTradesList.length > 0" class="space-y-1">
+            <div class="text-[10px] font-bold text-slate-400">📜 今日实盘动作流水：</div>
+            <div class="flex flex-wrap gap-1.5">
+              <div v-for="t in userTradesList" :key="t.tradeTime" class="bg-slate-900 px-2 py-0.5 rounded text-[10px] font-mono border border-slate-800 flex items-center gap-1.5">
+                <span :class="t.actionType === 'BUY' ? 'text-red-400 font-bold' : 'text-emerald-400 font-bold'">{{ t.actionType === 'BUY' ? '买入' : '卖出' }}</span>
+                <span class="text-slate-300">¥{{ t.tradePrice.toFixed(2) }} ({{ t.tradeShares }}股)</span>
+                <span class="text-slate-500">{{ t.tradeTime }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
         <!-- 右侧 1 列：做 T 关键位与控盘风格 -->
         <div class="glass-card p-3 sm:p-4 border border-slate-800 flex flex-col justify-between space-y-3">
@@ -442,6 +540,16 @@ const loadAdvancedHistory = async (code: string) => {
     const queryDate = selectedDate.value || defaultDate
     const res: any = await api.get(`/stocks/${code}/advanced-history?date=${queryDate}`)
     advancedHistory.value = res.data || { realHistories: [], predictions: [], rollingPredictions: [] }
+    
+    // 加载个人持仓与实盘动作
+    if (res.data.position) {
+      userHoldingShares.value = res.data.position.holdingShares || 0
+      userCostPrice.value = res.data.position.costPrice || 0
+    }
+    if (res.data.userTrades) {
+      userTradesList.value = res.data.userTrades || []
+    }
+
     await nextTick()
     renderChart()
   } catch (err) {
@@ -634,11 +742,140 @@ const shouldAutoRefresh = computed(() => {
   return isTradingTime.value || isPreMarketTime.value
 })
 
-// 格式化文本中的 \n 或纯换行
-const formatText = (text: string | undefined) => {
-  if (!text) return ''
-  return text.replace(/\\n/g, '\n')
+const userHoldingShares = ref<number>(0)
+const userCostPrice = ref<number>(0)
+const tradeActionType = ref<string>('BUY')
+const tradePrice = ref<number>(0)
+const tradeShares = ref<number>(1000)
+const userTradesList = ref<any[]>([])
+
+const saveUserPosition = async () => {
+  if (!selectedStock.value) return
+  try {
+    await api.post('/user/position', {
+      stockCode: selectedStock.value.code,
+      holdingShares: userHoldingShares.value,
+      costPrice: userCostPrice.value
+    })
+    ElMessage.success('个人底仓与成本已锁定更新！战术对策盘已重新计算')
+    loadAdvancedHistory(selectedStock.value.code)
+  } catch (err) {
+    ElMessage.error('保存底仓失败')
+  }
 }
+
+const submitTradeAction = async () => {
+  if (!selectedStock.value) return
+  const p = tradePrice.value || selectedStock.value.currentPrice
+  const s = tradeShares.value || 1000
+  try {
+    const res: any = await api.post('/user/trade-action', {
+      stockCode: selectedStock.value.code,
+      actionType: tradeActionType.value,
+      tradePrice: p,
+      tradeShares: s
+    })
+    ElMessage.success(`秒级录入成功：${tradeActionType.value === 'BUY' ? '买入' : '卖出'} ${s} 股 @ ¥${p.toFixed(2)}`)
+    loadAdvancedHistory(selectedStock.value.code)
+  } catch (err) {
+    ElMessage.error('录入实盘动作失败')
+  }
+}
+
+// 🎯 个人专属战术应变诊断与操作指示算法
+const tacticalAdvice = computed(() => {
+  if (!selectedStock.value) {
+    return {
+      title: '等待选择股票...',
+      content: '请先在顶部选择要操作的股票。',
+      cardClass: 'bg-slate-900 border-slate-800 text-slate-400',
+      titleClass: 'text-slate-400 border-slate-800',
+      textClass: 'text-slate-400'
+    }
+  }
+
+  const currP = selectedStock.value.currentPrice
+  const pHigh = selectedStock.value.predictedHigh
+  const pLow = selectedStock.value.predictedLow
+  const costP = userCostPrice.value || 0
+  const shares = userHoldingShares.value || 0
+  const lastTrade = userTradesList.value.length > 0 ? userTradesList.value[0] : null
+
+  // 1. 刚刚执行了【卖出 SELL】动作后的秒级应变对策
+  if (lastTrade && lastTrade.actionType === 'SELL') {
+    const sellP = lastTrade.tradePrice
+    const diffPct = ((currP - sellP) / sellP) * 100
+
+    if (currP > sellP && currP > pHigh) {
+      // 踩空卖飞大涨：急迫买回提醒
+      return {
+        title: `🚨 踩空预警：刚刚在 ¥${sellP.toFixed(2)} 卖出后，股价暴涨至 ¥${currP.toFixed(2)} (+${diffPct.toFixed(2)}%)！`,
+        content: `【极速补救指导】：目前主力触发突破上攻！您已出现卖飞状态。建议在突破确认回调位 (¥${pHigh.toFixed(2)}) 附近，将刚刚卖出的 ${lastTrade.tradeShares} 股逢低快速买回恢复底仓，切勿死扛错过后续主升浪！`,
+        cardClass: 'bg-red-950/80 border-red-500 text-red-200',
+        titleClass: 'text-red-400 border-red-900',
+        textClass: 'text-red-300'
+      }
+    } else if (currP < sellP) {
+      // 卖对大跌：回调接回成功
+      return {
+        title: `🎯 卖对解盘：刚刚在 ¥${sellP.toFixed(2)} 高抛极佳！现价已回调至 ¥${currP.toFixed(2)} (差价 ${((sellP - currP)/sellP*100).toFixed(2)}%)`,
+        content: `【接回指导】：您的高抛获利丰厚！请耐心等待股价进一步回踩至预判低吸位 (¥${pLow.toFixed(2)}) 附近，将 ${lastTrade.tradeShares} 股接回，轻松锁定日内做 T 净收益！`,
+        cardClass: 'bg-emerald-950/80 border-emerald-500 text-emerald-200',
+        titleClass: 'text-emerald-400 border-emerald-900',
+        textClass: 'text-emerald-300'
+      }
+    }
+  }
+
+  // 2. 刚刚执行了【买入 BUY】动作后的秒级应变对策
+  if (lastTrade && lastTrade.actionType === 'BUY') {
+    const buyP = lastTrade.tradePrice
+    const dropPct = ((buyP - currP) / buyP) * 100
+
+    if (currP < buyP && dropPct >= 1.5) {
+      // 买高被套：补仓或平仓止损
+      return {
+        title: `🛡️ 买高被套警告：刚刚在 ¥${buyP.toFixed(2)} 买入后，现价下跌至 ¥${currP.toFixed(2)} (-${dropPct.toFixed(2)}%)`,
+        content: `【战术应变】：您挂单偏高。建议：① 若有剩余资金且现价接近强托盘位 (¥${pLow.toFixed(2)})，可在 ¥${pLow.toFixed(2)} 处分批补仓摊薄成本；② 若跌破强止损线 (¥${(pLow * 0.985).toFixed(2)})，请在 14:30 前坚决平仓止损，切勿重仓扛单！`,
+        cardClass: 'bg-amber-950/80 border-amber-500 text-amber-200',
+        titleClass: 'text-amber-400 border-amber-900',
+        textClass: 'text-amber-300'
+      }
+    } else if (currP > buyP) {
+      // 低吸买成功，等待高抛
+      return {
+        title: `🟢 低吸成功：在 ¥${buyP.toFixed(2)} 买入后，现价上涨至 ¥${currP.toFixed(2)}！`,
+        content: `【高抛指导】：您的买点非常精准！请持有仓位，等待股价冲高至预判高抛阻力位 (¥${pHigh.toFixed(2)}) 挂单卖出锁盈。`,
+        cardClass: 'bg-emerald-950/80 border-emerald-500 text-emerald-200',
+        titleClass: 'text-emerald-400 border-emerald-900',
+        textClass: 'text-emerald-300'
+      }
+    }
+  }
+
+  // 3. 常规根据个人成本 costP 与预判区间的战术诊断
+  if (shares > 0 && costP > 0) {
+    const profitPct = ((currP - costP) / costP) * 100
+    if (costP > pHigh) {
+      return {
+        title: `⚠️ 个人成本警告：您的持仓成本 (¥${costP.toFixed(2)}) 高于今日预判最高阻力 (¥${pHigh.toFixed(2)})`,
+        content: `【高位解套指导】：目前整体处于浮亏 ${profitPct.toFixed(2)}% 状态。今日预测难以上冲至您的成本线。建议今日做 T 重点放在 ¥${pLow.toFixed(2)} 低吸、¥${pHigh.toFixed(2)} 高抛，利用小差价降低成本，勿盲目期待今日直接解套。`,
+        cardClass: 'bg-purple-950/80 border-purple-500 text-purple-200',
+        titleClass: 'text-purple-400 border-purple-900',
+        textClass: 'text-purple-300'
+      }
+    }
+  }
+
+  // 4. 默认常规指导
+  return {
+    title: `💡 常规做 T 战术指导：预判做 T 空间 [¥${pLow.toFixed(2)} ~ ¥${pHigh.toFixed(2)}]`,
+    content: `【操作要领】：支撑位 ¥${pLow.toFixed(2)} 适合逢低吸纳，阻力位 ¥${pHigh.toFixed(2)} 适合挂单高抛。成交后可在上方极速录入动作，获取针对性买回/卖出战术！`,
+    cardClass: 'bg-slate-900 border-slate-800 text-slate-300',
+    titleClass: 'text-cyan-400 border-slate-800',
+    textClass: 'text-slate-300'
+  }
+})
 
 const handleLogout = () => {
   localStorage.removeItem('zeroquant_token')

@@ -742,6 +742,12 @@ const shouldAutoRefresh = computed(() => {
   return isTradingTime.value || isPreMarketTime.value
 })
 
+// 格式化文本中的 \n 或纯换行
+const formatText = (text: string | undefined) => {
+  if (!text) return ''
+  return text.replace(/\\n/g, '\n')
+}
+
 const userHoldingShares = ref<number>(0)
 const userCostPrice = ref<number>(0)
 const tradeActionType = ref<string>('BUY')

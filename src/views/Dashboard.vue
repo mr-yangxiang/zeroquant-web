@@ -470,7 +470,7 @@ const stockList = ref<any[]>([])
 const selectedStock = ref<any>(null)
 const isDrawerOpen = ref(false)
 
-const defaultDate = '2026-08-10'
+const defaultDate = dayjs().tz('Asia/Shanghai').format('YYYY-MM-DD')
 const selectedDate = ref(defaultDate)
 
 const advancedHistory = ref<any>({

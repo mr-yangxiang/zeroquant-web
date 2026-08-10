@@ -229,14 +229,19 @@
             </div>
           </div>
 
-          <!-- 4. 当日操作历史追踪流水 -->
+          <!-- 4. 当日操作历史追踪流水 (支持一键撤销删除) -->
           <div v-if="userTradesList.length > 0" class="space-y-1">
-            <div class="text-[10px] font-bold text-slate-400">📜 今日实盘动作流水：</div>
+            <div class="text-[10px] font-bold text-slate-400 flex items-center justify-between">
+              <span>📜 今日实盘动作流水 (可以点击右侧 ✖ 撤销误操作)：</span>
+            </div>
             <div class="flex flex-wrap gap-1.5">
-              <div v-for="t in userTradesList" :key="t.tradeTime" class="bg-slate-900 px-2 py-0.5 rounded text-[10px] font-mono border border-slate-800 flex items-center gap-1.5">
-                <span :class="t.actionType === 'BUY' ? 'text-red-400 font-bold' : 'text-emerald-400 font-bold'">{{ t.actionType === 'BUY' ? '买入' : '卖出' }}</span>
+              <div v-for="t in userTradesList" :key="t.id || t.tradeTime" class="bg-slate-900 px-2 py-1 rounded-lg text-[10px] font-mono border border-slate-800 flex items-center gap-2 group hover:border-slate-700 transition-all">
+                <span :class="t.actionType === 'BUY' ? 'text-red-400 font-bold' : 'text-emerald-400 font-bold'">{{ t.actionType === 'BUY' ? '🔴 买入' : '🟢 卖出' }}</span>
                 <span class="text-slate-300">¥{{ t.tradePrice.toFixed(2) }} ({{ t.tradeShares }}股)</span>
                 <span class="text-slate-500">{{ t.tradeTime }}</span>
+                <button @click="deleteTradeAction(t.id)" class="text-slate-500 hover:text-red-400 font-bold px-1 rounded transition-colors" title="撤销并删除此笔操作">
+                  ✕
+                </button>
               </div>
             </div>
           </div>
@@ -450,7 +455,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
@@ -758,6 +763,11 @@ const userTradesList = ref<any[]>([])
 const saveUserPosition = async () => {
   if (!selectedStock.value) return
   try {
+    await ElMessageBox.confirm(
+      `确定将 ${selectedStock.value.name} (${selectedStock.value.code}) 的个人底仓更新为 ${userHoldingShares.value} 股，成本设定为 ¥${userCostPrice.value.toFixed(2)} 吗？`,
+      '确认更新个人底仓',
+      { confirmButtonText: '确定更新', cancelButtonText: '取消', type: 'info' }
+    )
     await api.post('/user/position', {
       stockCode: selectedStock.value.code,
       holdingShares: userHoldingShares.value,
@@ -765,8 +775,8 @@ const saveUserPosition = async () => {
     })
     ElMessage.success('个人底仓与成本已锁定更新！战术对策盘已重新计算')
     loadAdvancedHistory(selectedStock.value.code)
-  } catch (err) {
-    ElMessage.error('保存底仓失败')
+  } catch (err: any) {
+    if (err !== 'cancel') ElMessage.error('保存底仓失败')
   }
 }
 
@@ -774,8 +784,14 @@ const submitTradeAction = async () => {
   if (!selectedStock.value) return
   const p = tradePrice.value || selectedStock.value.currentPrice
   const s = tradeShares.value || 1000
+  const actionText = tradeActionType.value === 'BUY' ? '🔴 挂单买入' : '🟢 挂单卖出'
   try {
-    const res: any = await api.post('/user/trade-action', {
+    await ElMessageBox.confirm(
+      `确定录入 ${selectedStock.value.name} 的动作【${actionText} ${s} 股 @ ¥${p.toFixed(2)} 元】吗？提交后将瞬间重塑个人战术对策卡片。`,
+      '二次确认实盘动作',
+      { confirmButtonText: '确认录入', cancelButtonText: '取消', type: 'warning' }
+    )
+    await api.post('/user/trade-action', {
       stockCode: selectedStock.value.code,
       actionType: tradeActionType.value,
       tradePrice: p,
@@ -783,8 +799,24 @@ const submitTradeAction = async () => {
     })
     ElMessage.success(`秒级录入成功：${tradeActionType.value === 'BUY' ? '买入' : '卖出'} ${s} 股 @ ¥${p.toFixed(2)}`)
     loadAdvancedHistory(selectedStock.value.code)
-  } catch (err) {
-    ElMessage.error('录入实盘动作失败')
+  } catch (err: any) {
+    if (err !== 'cancel') ElMessage.error('录入实盘动作失败')
+  }
+}
+
+const deleteTradeAction = async (tradeId: number) => {
+  if (!selectedStock.value || !tradeId) return
+  try {
+    await ElMessageBox.confirm(
+      '确定要撤销并删除该笔实盘操作记录吗？撤销后战术卡片将恢复上一次实盘状态。',
+      '撤销操作确认',
+      { confirmButtonText: '确定撤销', cancelButtonText: '取消', type: 'warning' }
+    )
+    await api.delete(`/user/trade-action/${tradeId}?stockCode=${selectedStock.value.code}`)
+    ElMessage.success('成功撤销该笔实盘操作！战术对策卡片已重新计算')
+    loadAdvancedHistory(selectedStock.value.code)
+  } catch (err: any) {
+    if (err !== 'cancel') ElMessage.error('撤销操作失败')
   }
 }
 

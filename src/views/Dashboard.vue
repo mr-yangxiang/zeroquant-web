@@ -660,10 +660,43 @@ const renderChart = () => {
     })
   }
 
-  // 真实开盘轨迹
+  // 5. 涨乐财富通同款：分时顶底 Peak/Trough 自动标记 (最高顶点与最低底点高亮 Badge)
   if (data.realHistories && data.realHistories.length > 0) {
     const realPricesMap = new Map(data.realHistories.map((h: any) => [dayjs.utc(h.timestamp).tz('Asia/Shanghai').format('HH:mm'), h.realPrice]))
     const realDataArr = timeCategories.map((t: string) => realPricesMap.get(t) || null)
+
+    // 计算分时顶点与底点
+    let maxVal = -1
+    let maxIdx = -1
+    let minVal = 999999
+    let minIdx = -1
+
+    realDataArr.forEach((val: number | null, idx: number) => {
+      if (val !== null && val !== undefined) {
+        if (val > maxVal) { maxVal = val; maxIdx = idx }
+        if (val < minVal) { minVal = val; minIdx = idx }
+      }
+    })
+
+    const markPointsArr: any[] = []
+    if (maxIdx >= 0) {
+      markPointsArr.push({
+        name: '分时波段顶 (T0高抛)',
+        value: `分时顶 ¥${maxVal.toFixed(2)}`,
+        xAxis: maxIdx,
+        yAxis: maxVal,
+        itemStyle: { color: '#ef4444' }
+      })
+    }
+    if (minIdx >= 0) {
+      markPointsArr.push({
+        name: '分时波段底 (T0低吸)',
+        value: `分时底 ¥${minVal.toFixed(2)}`,
+        xAxis: minIdx,
+        yAxis: minVal,
+        itemStyle: { color: '#10b981' }
+      })
+    }
 
     series.push({
       name: isHist ? '真实历史开盘轨迹 (红实线)' : '④ 真实开盘轨迹 (红实线)',
@@ -678,6 +711,16 @@ const renderChart = () => {
           { offset: 1, color: 'rgba(239, 68, 68, 0)' },
         ]),
       },
+      markPoint: {
+        symbol: 'pin',
+        symbolSize: 45,
+        label: {
+          fontSize: 9,
+          fontWeight: 'bold',
+          color: '#ffffff'
+        },
+        data: markPointsArr
+      }
     })
   }
 

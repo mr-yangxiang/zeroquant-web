@@ -121,7 +121,7 @@
                   <span>{{ p.direction || '看涨' }} {{ p.targetPct >= 0 ? '+' : '' }}{{ p.targetPct || 1.2 }}%</span>
                 </span>
               </h2>
-              <p class="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 leading-snug">① 09:20 终极基准预判线 (开盘前10min终极固定实线) ② 提前5min动态修正线 ③ 重模拟对比线 ④ 真实开盘轨迹 (红实线)</p>
+              <p class="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 leading-snug">① 09:20 终极基准预判线 (固定实线) ② 盘中动态重塑全天趋势线 (黄虚线 - 实时重塑全天走向) ③ 重模拟对比线 ④ 真实开盘轨迹 (红实线)</p>
             </div>
             
             <div class="flex items-center gap-2 self-end sm:self-auto">
@@ -177,6 +177,25 @@
             <span>昨收: ¥{{ selectedStock.yesterdayPrice.toFixed(2) }}</span>
             <span>实盘最高: ¥{{ selectedStock.highPrice.toFixed(2) }}</span>
             <span>实盘最低: ¥{{ selectedStock.lowPrice.toFixed(2) }}</span>
+          </div>
+
+          <!-- 盘中动态重塑全天趋势决策卡片 (买回/卖对指导) -->
+          <div v-if="selectedStock" class="bg-amber-950/40 border border-amber-500/40 p-2.5 rounded-xl text-[11px]">
+            <div class="text-amber-400 font-bold mb-0.5 flex items-center gap-1">
+              <el-icon><Compass /></el-icon>
+              <span>【盘中动态重塑全天趋势诊断】</span>
+            </div>
+            <div class="text-amber-200/90 leading-snug">
+              <template v-if="selectedStock.currentPrice > selectedStock.predictedHigh">
+                🚨 <span class="font-bold text-amber-300">【趋势突破上移 / 踩空预警】：</span> 盘中现价 (¥{{ selectedStock.currentPrice.toFixed(2) }}) 已突破预判阻力位 (¥{{ selectedStock.predictedHigh.toFixed(2) }})！趋势线已实时重塑向上。若高抛卖出，建议在突破确认支撑位 (¥{{ selectedStock.predictedHigh.toFixed(2) }}) 附近逢低快速买回做 T 仓，切勿盲目做空！
+              </template>
+              <template v-else-if="selectedStock.currentPrice < selectedStock.predictedLow">
+                🔴 <span class="font-bold text-red-400">【趋势下探寻底 / 慎加仓】：</span> 盘中现价 (¥{{ selectedStock.currentPrice.toFixed(2) }}) 跌破预判支撑 (¥{{ selectedStock.predictedLow.toFixed(2) }})！低吸做 T 者请注意 1.5% 止损纪律；高抛者建议在强托盘区 (¥{{ selectedStock.predictedLow.toFixed(2) }}) 企稳后再买回。
+              </template>
+              <template v-else>
+                🟢 <span class="font-bold text-emerald-400">【常态震荡 / 卖对按计划解盘】：</span> 盘中趋势按预判在 [¥{{ selectedStock.predictedLow.toFixed(2) }} ~ ¥{{ selectedStock.predictedHigh.toFixed(2) }}] 区间震荡。高抛卖出后请耐心等待回调，到达低谷支撑位 (¥{{ selectedStock.predictedLow.toFixed(2) }}) 再解盘买回！
+              </template>
+            </div>
           </div>
 
           <div v-if="currentAnalysis" class="space-y-2 text-[11px]">
@@ -506,7 +525,7 @@ const renderChart = () => {
       const rollingMap = new Map(data.rollingPredictions.map((r: any) => [r.targetTime, r.predictedPrice]))
       const rollingDataArr = timeCategories.map((t: string) => rollingMap.get(t) || null)
       series.push({
-        name: '② 提前 5 分钟动态修正线 (黄虚线)',
+        name: '② 盘中动态重塑全天趋势线 (黄虚线 - 实时重塑全天走向)',
         type: 'line',
         smooth: true,
         data: rollingDataArr,

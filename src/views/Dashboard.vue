@@ -72,7 +72,7 @@
         <div class="flex items-center gap-1.5 bg-slate-800/60 border border-slate-700/50 px-2.5 py-1 rounded-full text-[11px] sm:text-xs">
           <span :class="shouldAutoRefresh ? 'w-2 h-2 rounded-full bg-emerald-400 animate-ping' : isHistoryView ? 'w-2 h-2 rounded-full bg-cyan-400' : 'w-2 h-2 rounded-full bg-amber-400'"></span>
           <span :class="shouldAutoRefresh ? 'text-emerald-400 font-mono font-bold' : isHistoryView ? 'text-cyan-400 font-mono font-bold' : 'text-amber-400 font-mono font-bold'">
-            {{ isHistoryView ? '🔵 历史复盘 (轨迹固定)' : isPreMarketTime ? `🟢 09:20预判对冲中 (${countdown}s)` : isTradingTime ? `🟢 1min实盘对冲中 (${countdown}s)` : '🟡 停盘休眠中' }}
+            {{ isHistoryView ? '🔵 历史复盘 (轨迹固定)' : isPreMarketTime ? `🟢 盘前竞价对冲中 (${countdown}s)` : isTradingTime ? `🟢 1min实盘对冲中 (${countdown}s)` : '🟡 停盘休眠中' }}
           </span>
         </div>
 

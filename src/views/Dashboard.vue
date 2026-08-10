@@ -152,23 +152,31 @@
             <span>{{ selectedStock.name }} 盘中关键位</span>
           </h3>
 
+          <!-- 做 T 预测关键位 (与 ECharts 预测折线极值 100% 精确对齐) -->
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 font-mono text-xs">
-            <div class="bg-slate-950/60 p-1.5 sm:p-2 rounded-xl border border-slate-800 text-center">
-              <div class="text-[10px] text-slate-400">昨收价</div>
-              <div class="text-slate-200 font-bold text-xs mt-0.5">¥{{ selectedStock.yesterdayPrice.toFixed(2) }}</div>
+            <div class="bg-slate-950/80 p-1.5 sm:p-2 rounded-xl border border-emerald-500/40 text-center">
+              <div class="text-[10px] text-emerald-400 font-bold">预测低吸支撑</div>
+              <div class="text-emerald-400 font-bold text-xs mt-0.5">¥{{ selectedStock.predictedLow.toFixed(2) }}</div>
+            </div>
+            <div class="bg-slate-950/80 p-1.5 sm:p-2 rounded-xl border border-red-500/40 text-center">
+              <div class="text-[10px] text-red-400 font-bold">预测高抛阻力</div>
+              <div class="text-red-400 font-bold text-xs mt-0.5">¥{{ selectedStock.predictedHigh.toFixed(2) }}</div>
             </div>
             <div class="bg-slate-950/60 p-1.5 sm:p-2 rounded-xl border border-slate-800 text-center">
-              <div class="text-[10px] text-slate-400">今开价</div>
+              <div class="text-[10px] text-slate-400">基准收盘价</div>
               <div class="text-cyan-400 font-bold text-xs mt-0.5">¥{{ selectedStock.currentPrice.toFixed(2) }}</div>
             </div>
             <div class="bg-slate-950/60 p-1.5 sm:p-2 rounded-xl border border-slate-800 text-center">
-              <div class="text-[10px] text-slate-400">最高价</div>
-              <div class="text-red-400 font-bold text-xs mt-0.5">¥{{ selectedStock.highPrice.toFixed(2) }}</div>
+              <div class="text-[10px] text-slate-400">做 T 空间振幅</div>
+              <div class="text-amber-400 font-bold text-xs mt-0.5">¥{{ (selectedStock.predictedHigh - selectedStock.predictedLow).toFixed(2) }}</div>
             </div>
-            <div class="bg-slate-950/60 p-1.5 sm:p-2 rounded-xl border border-slate-800 text-center">
-              <div class="text-[10px] text-slate-400">最低价</div>
-              <div class="text-emerald-400 font-bold text-xs mt-0.5">¥{{ selectedStock.lowPrice.toFixed(2) }}</div>
-            </div>
+          </div>
+
+          <!-- 实盘历史极端参照位 -->
+          <div class="flex items-center justify-between text-[10px] font-mono text-slate-400 px-1 bg-slate-950/40 py-1 rounded-lg border border-slate-800/60">
+            <span>昨收: ¥{{ selectedStock.yesterdayPrice.toFixed(2) }}</span>
+            <span>实盘最高: ¥{{ selectedStock.highPrice.toFixed(2) }}</span>
+            <span>实盘最低: ¥{{ selectedStock.lowPrice.toFixed(2) }}</span>
           </div>
 
           <div v-if="currentAnalysis" class="space-y-2 text-[11px]">

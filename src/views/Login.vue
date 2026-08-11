@@ -13,12 +13,35 @@
         <p class="text-xs text-slate-400 mt-2 font-mono">AI 量化交易与盘中做 T 决策系统</p>
       </div>
 
-      <el-form :model="form" @submit.prevent="handleLogin" size="large">
-        <el-form-item>
+      <div class="flex items-center justify-center gap-4 mb-6 border-b border-slate-800 pb-3">
+        <button
+          @click="isRegister = false"
+          :class="!isRegister ? 'text-cyan-400 font-extrabold border-b-2 border-cyan-400 pb-1 text-sm' : 'text-slate-400 text-sm hover:text-white'"
+        >
+          账号登录
+        </button>
+        <button
+          @click="isRegister = true"
+          :class="isRegister ? 'text-cyan-400 font-extrabold border-b-2 border-cyan-400 pb-1 text-sm' : 'text-slate-400 text-sm hover:text-white'"
+        >
+          注册新账号
+        </button>
+      </div>
+
+      <el-form :model="form" @submit.prevent="handleSubmit" size="large">
+        <el-form-item v-if="isRegister">
+          <el-input
+            v-model="form.username"
+            placeholder="昵称 / 战友姓名 (如: 战友-老李)"
+            prefix-icon="User"
+            class="custom-input"
+          />
+        </el-form-item>
+        <el-form-item class="mt-4">
           <el-input
             v-model="form.phone"
             placeholder="账号 / 手机号"
-            prefix-icon="User"
+            prefix-icon="Iphone"
             class="custom-input"
           />
         </el-form-item>
@@ -38,7 +61,7 @@
           :disabled="loading"
           class="w-full mt-6 py-3.5 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold tracking-wide shadow-lg shadow-cyan-500/25 active:scale-95 transition-all duration-200 disabled:opacity-50"
         >
-          {{ loading ? '身份验证中...' : '进入做 T 智脑大盘' }}
+          {{ loading ? '验证处理中...' : (isRegister ? '注册并进入智脑大盘' : '进入做 T 智脑大盘') }}
         </button>
       </el-form>
     </div>
@@ -53,22 +76,28 @@ import api from '../api'
 
 const router = useRouter()
 const loading = ref(false)
+const isRegister = ref(false)
 const form = ref({
+  username: '',
   phone: '',
   password: '',
 })
 
-const handleLogin = async () => {
+const handleSubmit = async () => {
   if (!form.value.phone || !form.value.password) {
     return ElMessage.warning('请输入账号和密码')
+  }
+  if (isRegister.value && !form.value.username) {
+    return ElMessage.warning('请输入战友昵称/姓名')
   }
 
   loading.value = true
   try {
-    const res: any = await api.post('/auth/login', form.value)
+    const url = isRegister.value ? '/auth/register' : '/auth/login'
+    const res: any = await api.post(url, form.value)
     localStorage.setItem('zeroquant_token', res.data.token)
     localStorage.setItem('zeroquant_user', JSON.stringify(res.data.user))
-    ElMessage.success('欢迎进入 ZeroQuant 做 T 智脑平台！')
+    ElMessage.success(isRegister.value ? '注册成功，欢迎加入 ZeroQuant 智脑做 T 平台！' : '欢迎进入 ZeroQuant 做 T 智脑平台！')
     router.replace('/')
   } catch (err: any) {
     // 错误在拦截器处理

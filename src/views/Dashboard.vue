@@ -215,8 +215,8 @@
             </div>
           </div>
 
-          <!-- 3. 专属战术应变诊断与操作指示卡片 (实时算得：卖飞/买高/止损/补仓对策) -->
-          <div class="p-3 rounded-xl border text-xs space-y-1.5" :class="tacticalAdvice.cardClass">
+          <!-- 3. 专属战术应变诊断与操作指示卡片 (仅当有个人持仓或实盘动作时显示，避免冗余) -->
+          <div v-if="userTradesList.length > 0 || (userCostPrice > 0 && userHoldingShares > 0)" class="p-3 rounded-xl border text-xs space-y-1.5" :class="tacticalAdvice.cardClass">
             <div class="font-bold flex items-center justify-between border-b pb-1.5" :class="tacticalAdvice.titleClass">
               <span class="flex items-center gap-1.5">
                 <el-icon><Aim /></el-icon>
@@ -282,22 +282,80 @@
             <span>实盘最低: ¥{{ selectedStock.lowPrice.toFixed(2) }}</span>
           </div>
 
-          <!-- 盘中动态重塑全天趋势决策卡片 (买回/卖对指导) -->
-          <div v-if="selectedStock" class="bg-amber-950/40 border border-amber-500/40 p-2.5 rounded-xl text-[11px]">
-            <div class="text-amber-400 font-bold mb-0.5 flex items-center gap-1">
-              <el-icon><Compass /></el-icon>
-              <span>【盘中动态重塑全天趋势诊断】</span>
+          <!-- 盘中动态重塑全天趋势与做 T 战术动作一体化卡片 (高对比度、零冗余，一秒全局读懂) -->
+          <div v-if="selectedStock" class="bg-gradient-to-r from-cyan-950/60 via-slate-900/90 to-indigo-950/60 border border-cyan-500/50 p-3 rounded-xl shadow-xl space-y-2">
+            <div class="text-cyan-300 font-extrabold flex items-center justify-between border-b border-cyan-500/30 pb-1.5 text-xs">
+              <div class="flex items-center gap-1.5">
+                <el-icon><Compass /></el-icon>
+                <span>【🎯 实盘做 T 决策与后续动作指引】</span>
+              </div>
+              <span class="text-[10px] bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded font-mono">1min 实时重塑</span>
             </div>
-            <div class="text-amber-200/90 leading-snug">
-              <template v-if="selectedStock.currentPrice > selectedStock.predictedHigh">
-                🚨 <span class="font-bold text-amber-300">【趋势突破上移 / 踩空预警】：</span> 盘中现价 (¥{{ selectedStock.currentPrice.toFixed(2) }}) 已突破预判阻力位 (¥{{ selectedStock.predictedHigh.toFixed(2) }})！趋势线已实时重塑向上。若高抛卖出，建议在突破确认支撑位 (¥{{ selectedStock.predictedHigh.toFixed(2) }}) 附近逢低快速买回做 T 仓，切勿盲目做空！
+
+            <!-- 1. 实时分盘与封板/破位状态判断条 -->
+            <div class="text-[11px]">
+              <template v-if="selectedStock.currentPrice > 0 && selectedStock.yesterdayPrice > 0 && (selectedStock.currentPrice / selectedStock.yesterdayPrice >= 1.098 || selectedStock.currentPrice / selectedStock.yesterdayPrice <= 0.902)">
+                <div class="bg-amber-950/60 border border-amber-500/50 p-2 rounded-lg text-amber-200">
+                  <span class="font-bold text-amber-300">🔒【封板做不了 T】：</span>
+                  当前封住 <span class="font-bold text-amber-400">{{ selectedStock.currentPrice / selectedStock.yesterdayPrice >= 1.098 ? '涨停板' : '跌停板' }} (¥{{ selectedStock.currentPrice.toFixed(2) }})</span>，筹码锁定无套利空间。
+                  <span class="font-bold text-amber-300">明确动作：停止做 T，锁仓等待明日 09:20 竞价开盘。</span>
+                </div>
+              </template>
+              <template v-else-if="(selectedStock.predictedHigh - selectedStock.predictedLow) / selectedStock.yesterdayPrice < 0.01">
+                <div class="bg-slate-900/80 border border-slate-700/80 p-2 rounded-lg text-slate-300">
+                  <span class="font-bold text-slate-200">⏸️【微幅震荡做不了 T】：</span>
+                  预测振幅仅 ¥{{ (selectedStock.predictedHigh - selectedStock.predictedLow).toFixed(2) }} (&lt;1.0%)。
+                  <span class="font-bold text-cyan-300">明确动作：扣除税费无盈利空间，建议观望等待大箱体。</span>
+                </div>
+              </template>
+              <template v-else-if="selectedStock.currentPrice > selectedStock.predictedHigh">
+                <div class="bg-amber-950/60 border border-amber-500/50 p-2 rounded-lg text-amber-200">
+                  <span class="font-bold text-amber-300">🚨【趋势突破上移 / 踩空预警】：</span>
+                  现价 ¥{{ selectedStock.currentPrice.toFixed(2) }} 突破阻力位 ¥{{ selectedStock.predictedHigh.toFixed(2) }}！
+                  <span class="font-bold text-amber-200">若已卖出，建议在突破确认位 ¥{{ selectedStock.predictedHigh.toFixed(2) }} 附近买回，切勿盲目做空！</span>
+                </div>
               </template>
               <template v-else-if="selectedStock.currentPrice < selectedStock.predictedLow">
-                🔴 <span class="font-bold text-red-400">【趋势下探寻底 / 慎加仓】：</span> 盘中现价 (¥{{ selectedStock.currentPrice.toFixed(2) }}) 跌破预判支撑 (¥{{ selectedStock.predictedLow.toFixed(2) }})！低吸做 T 者请注意 1.5% 止损纪律；高抛者建议在强托盘区 (¥{{ selectedStock.predictedLow.toFixed(2) }}) 企稳后再买回。
+                <div class="bg-red-950/60 border border-red-500/50 p-2 rounded-lg text-red-200">
+                  <span class="font-bold text-red-400">🔴【趋势下探寻底 / 慎加仓】：</span>
+                  现价 ¥{{ selectedStock.currentPrice.toFixed(2) }} 跌破预判支撑 ¥{{ selectedStock.predictedLow.toFixed(2) }}！
+                  <span class="font-bold text-red-300">注意 1.5% 止损纪律；待托盘企稳后再买回。</span>
+                </div>
               </template>
               <template v-else>
-                🟢 <span class="font-bold text-emerald-400">【常态震荡 / 卖对按计划解盘】：</span> 盘中趋势按预判在 [¥{{ selectedStock.predictedLow.toFixed(2) }} ~ ¥{{ selectedStock.predictedHigh.toFixed(2) }}] 区间震荡。高抛卖出后请耐心等待回调，到达低谷支撑位 (¥{{ selectedStock.predictedLow.toFixed(2) }}) 再解盘买回！
+                <div class="bg-emerald-950/40 border border-emerald-500/40 p-2 rounded-lg text-emerald-200 flex items-center justify-between">
+                  <span>🟢 <span class="font-bold text-emerald-300">常态箱体震荡</span> [¥{{ selectedStock.predictedLow.toFixed(2) }} ~ ¥{{ selectedStock.predictedHigh.toFixed(2) }}]</span>
+                  <span class="font-mono text-[10px] text-emerald-400 font-bold">按预判做 T</span>
+                </div>
               </template>
+            </div>
+
+            <!-- 2. 精准高对比做 T 动作与操作指示框 (零冗余废话，一秒读懂价位) -->
+            <div v-if="!((selectedStock.currentPrice / selectedStock.yesterdayPrice >= 1.098 || selectedStock.currentPrice / selectedStock.yesterdayPrice <= 0.902) || (selectedStock.predictedHigh - selectedStock.predictedLow) / selectedStock.yesterdayPrice < 0.01)" class="grid grid-cols-1 gap-1.5 text-[11px] font-mono">
+              <div class="bg-red-950/40 border border-red-500/30 p-2 rounded-lg flex items-center justify-between">
+                <div>
+                  <span class="font-bold text-red-400">🔴 高抛动作:</span>
+                  在 <span class="font-bold text-red-300 text-xs">¥{{ selectedStock.predictedHigh.toFixed(2) }}</span> 卖出
+                  <span class="text-slate-400 text-[10px]"> ➔ 回调至 </span>
+                  <span class="font-bold text-emerald-400 text-xs">¥{{ selectedStock.predictedLow.toFixed(2) }}</span> 接回
+                </div>
+                <span class="text-amber-400 font-bold text-[10px]">差价 ¥{{ (selectedStock.predictedHigh - selectedStock.predictedLow).toFixed(2) }}</span>
+              </div>
+
+              <div class="bg-emerald-950/40 border border-emerald-500/30 p-2 rounded-lg flex items-center justify-between">
+                <div>
+                  <span class="font-bold text-emerald-400">🟢 低吸动作:</span>
+                  在 <span class="font-bold text-emerald-300 text-xs">¥{{ selectedStock.predictedLow.toFixed(2) }}</span> 买入
+                  <span class="text-slate-400 text-[10px]"> ➔ 冲高至 </span>
+                  <span class="font-bold text-red-400 text-xs">¥{{ selectedStock.predictedHigh.toFixed(2) }}</span> 平仓
+                </div>
+                <span class="text-cyan-400 font-bold text-[10px]">平仓解盘</span>
+              </div>
+
+              <div class="bg-slate-950/80 border border-red-900/40 p-1.5 rounded-lg flex items-center justify-between text-[10px]">
+                <span class="text-red-400 font-bold">🚨 强止损线:</span>
+                <span class="text-slate-300">跌破 <span class="font-bold text-red-300 font-mono">¥{{ (selectedStock.predictedLow * 0.985).toFixed(2) }}</span> (破位 1.5%)，14:30 前坚决平 T 仓止损</span>
+              </div>
             </div>
           </div>
 
@@ -309,79 +367,6 @@
                 <span>【核心主控席位与 500 日分时习惯分析】</span>
               </div>
               <div class="text-cyan-200/90 leading-snug whitespace-pre-line">{{ formatText(currentAnalysis.hostStyle) }}</div>
-            </div>
-
-            <!-- 全天做 T 战术指导与后续动作（替代旧版理由卡片） -->
-            <div class="bg-gradient-to-r from-cyan-950/60 via-slate-900/80 to-indigo-950/60 border border-cyan-500/50 p-3 rounded-xl shadow-lg">
-              <div class="text-cyan-300 font-extrabold mb-1 flex items-center justify-between border-b border-cyan-500/30 pb-1.5">
-                <div class="flex items-center gap-1.5 text-xs">
-                  <el-icon><Compass /></el-icon>
-                  <span>【全天做 T 战术指导与后续动作指示】</span>
-                </div>
-                <span class="text-[10px] bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded font-mono">实时动态推算</span>
-              </div>
-
-              <!-- 核心分层战术推演 -->
-              <div class="space-y-2 mt-2">
-                <!-- 场景 A: 涨停 / 跌停 封板做不了 T -->
-                <template v-if="selectedStock.currentPrice > 0 && selectedStock.yesterdayPrice > 0 && (selectedStock.currentPrice / selectedStock.yesterdayPrice >= 1.098 || selectedStock.currentPrice / selectedStock.yesterdayPrice <= 0.902)">
-                  <div class="bg-amber-950/50 border border-amber-500/50 p-2 rounded-lg text-amber-200">
-                    <div class="font-bold text-amber-300 text-xs mb-1">🔒【今日做不了 T 说明】：</div>
-                    <p class="leading-relaxed">
-                      当前股票已强行封住 <span class="font-bold text-amber-400">{{ selectedStock.currentPrice / selectedStock.yesterdayPrice >= 1.098 ? '涨停板' : '跌停板' }} (¥{{ selectedStock.currentPrice.toFixed(2) }})</span>！
-                      主力资金筹码高度锁定，日内无做 T 波动空间，强行撤单做 T 极易导致卖飞或无法成交。
-                    </p>
-                    <div class="mt-1 pt-1 border-t border-amber-500/30 font-bold text-amber-300">
-                      💡 明确后续动作：今日建议停止任何做 T 操作！保持持仓锁仓，等待明日开盘 (09:20) 观察集合竞价动向与资金溢价后再行制定做 T 计划。
-                    </div>
-                  </div>
-                </template>
-
-                <!-- 场景 B: 空间振幅 <= 1.0% 或价格极小波动 -->
-                <template v-else-if="(selectedStock.predictedHigh - selectedStock.predictedLow) / selectedStock.yesterdayPrice < 0.01">
-                  <div class="bg-slate-900/80 border border-slate-700/80 p-2 rounded-lg text-slate-300">
-                    <div class="font-bold text-slate-200 text-xs mb-1">⏸️【今日做不了 T 说明】：</div>
-                    <p class="leading-relaxed">
-                      今日做 T 预测振幅差价小于 1.0% (仅 ¥{{ (selectedStock.predictedHigh - selectedStock.predictedLow).toFixed(2) }})，扣除印花税与券商佣金后无有效盈利空间。
-                    </p>
-                    <div class="mt-1 pt-1 border-t border-slate-700/50 font-bold text-cyan-300">
-                      💡 明确后续动作：今日不宜继续盲目操作，建议观望并等待明日出现清晰的箱体空间再行出击。
-                    </div>
-                  </div>
-                </template>
-
-                <!-- 场景 C: 正常波动做 T 明确指示 -->
-                <template v-else>
-                  <!-- 1. 明确预判走向与做 T 方向 -->
-                  <div class="flex items-center justify-between bg-slate-950/70 p-2 rounded-lg border border-slate-800">
-                    <span class="text-slate-400">当前实时走向推算：</span>
-                    <span :class="selectedStock.currentPrice >= selectedStock.yesterdayPrice ? 'text-red-400 font-bold' : 'text-emerald-400 font-bold'">
-                      {{ selectedStock.currentPrice >= selectedStock.yesterdayPrice ? '📈 偏强震荡/上攻' : '📉 承压回调/寻底' }}
-                    </span>
-                  </div>
-
-                  <!-- 2. 具体买卖与接回价位明确指示 -->
-                  <div class="space-y-1.5 text-[11px] leading-relaxed">
-                    <div class="bg-emerald-950/40 border border-emerald-500/30 p-2 rounded-lg">
-                      <span class="font-bold text-emerald-400">🎯 【高抛卖出及低位接回指示】：</span>
-                      若您打算高抛做 T，建议在 <span class="font-bold text-red-400">¥{{ selectedStock.predictedHigh.toFixed(2) }}</span> 附近挂单高抛卖出；
-                      卖出成功后，请耐性等待股价回调至 <span class="font-bold text-emerald-400">¥{{ selectedStock.predictedLow.toFixed(2) }}</span> 附近逢低接回 T 仓，锁定做 T 差价。
-                    </div>
-
-                    <div class="bg-cyan-950/40 border border-cyan-500/30 p-2 rounded-lg">
-                      <span class="font-bold text-cyan-400">🎯 【低吸建仓及高位冲高抛出指示】：</span>
-                      若您打算先买后卖做 T，建议在 <span class="font-bold text-emerald-400">¥{{ selectedStock.predictedLow.toFixed(2) }}</span> 支撑位附近低吸挂单；
-                      低吸成交后，若拉升至 <span class="font-bold text-red-400">¥{{ selectedStock.predictedHigh.toFixed(2) }}</span> 附近请果断抛出日内加仓部分。
-                    </div>
-
-                    <!-- 3. 止损预案 -->
-                    <div class="bg-red-950/40 border border-red-500/30 p-2 rounded-lg text-red-200">
-                      <span class="font-bold text-red-400">🚨 【破位极端应对】：</span>
-                      若低吸后股价跌破 <span class="font-bold text-red-300">¥{{ (selectedStock.predictedLow * 0.985).toFixed(2) }}</span> (破位 1.5%)，代表日内多头防守失效，必须在 14:30 前坚决平 T 仓止损，严禁重仓扛单。
-                    </div>
-                  </div>
-                </template>
-              </div>
             </div>
 
             <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800/80">

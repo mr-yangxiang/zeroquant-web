@@ -215,14 +215,14 @@
             </div>
           </div>
 
-          <!-- 3. 专属战术应变诊断与操作指示卡片 (仅当有个人持仓或实盘动作时显示，避免冗余) -->
-          <div v-if="userTradesList.length > 0 || (userCostPrice > 0 && userHoldingShares > 0)" class="p-3 rounded-xl border text-xs space-y-1.5" :class="tacticalAdvice.cardClass">
+          <!-- 3. 专属战术应变诊断与操作指示卡片 (仅当有实盘买卖或成本预警事件时触发) -->
+          <div v-if="tacticalAdvice" class="p-3 rounded-xl border text-xs space-y-1.5" :class="tacticalAdvice.cardClass">
             <div class="font-bold flex items-center justify-between border-b pb-1.5" :class="tacticalAdvice.titleClass">
               <span class="flex items-center gap-1.5">
                 <el-icon><Aim /></el-icon>
                 <span>{{ tacticalAdvice.title }}</span>
               </span>
-              <span class="text-[10px] font-mono opacity-80">依据个人持仓与实时盘口动态精算</span>
+              <span class="text-[10px] font-mono opacity-80">专属应变解盘</span>
             </div>
             <div class="leading-relaxed font-sans" :class="tacticalAdvice.textClass">
               {{ tacticalAdvice.content }}
@@ -990,14 +990,8 @@ const tacticalAdvice = computed(() => {
     }
   }
 
-  // 4. 默认常规指导
-  return {
-    title: `💡 常规做 T 战术指导：预判做 T 空间 [¥${pLow.toFixed(2)} ~ ¥${pHigh.toFixed(2)}]`,
-    content: `【操作要领】：支撑位 ¥${pLow.toFixed(2)} 适合逢低吸纳，阻力位 ¥${pHigh.toFixed(2)} 适合挂单高抛。成交后可在上方极速录入动作，获取针对性买回/卖出战术！`,
-    cardClass: 'bg-slate-900 border-slate-800 text-slate-300',
-    titleClass: 'text-cyan-400 border-slate-800',
-    textClass: 'text-slate-300'
-  }
+  // 4. 无特异解盘事件时返回 null，由右侧统一卡片精炼显示，避免左侧重复显示冗余常规指导
+  return null
 })
 
 const handleLogout = () => {

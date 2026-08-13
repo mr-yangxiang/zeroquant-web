@@ -302,7 +302,7 @@
           </div>
 
           <div v-if="currentAnalysis" class="space-y-2 text-[11px]">
-            <!-- 新增：核心主控席位与历史行为观察 -->
+            <!-- 核心主控席位与历史行为观察 -->
             <div class="bg-cyan-950/40 border border-cyan-500/30 p-2.5 rounded-xl">
               <div class="text-cyan-400 font-bold mb-0.5 flex items-center gap-1">
                 <el-icon><User /></el-icon>
@@ -311,20 +311,77 @@
               <div class="text-cyan-200/90 leading-snug whitespace-pre-line">{{ formatText(currentAnalysis.hostStyle) }}</div>
             </div>
 
-            <div class="bg-emerald-950/40 border border-emerald-500/30 p-2.5 rounded-xl">
-              <div class="text-emerald-400 font-bold mb-0.5 flex items-center gap-1">
-                <el-icon><Select /></el-icon>
-                <span>【推荐买入/做T理由】</span>
+            <!-- 全天做 T 战术指导与后续动作（替代旧版理由卡片） -->
+            <div class="bg-gradient-to-r from-cyan-950/60 via-slate-900/80 to-indigo-950/60 border border-cyan-500/50 p-3 rounded-xl shadow-lg">
+              <div class="text-cyan-300 font-extrabold mb-1 flex items-center justify-between border-b border-cyan-500/30 pb-1.5">
+                <div class="flex items-center gap-1.5 text-xs">
+                  <el-icon><Compass /></el-icon>
+                  <span>【全天做 T 战术指导与后续动作指示】</span>
+                </div>
+                <span class="text-[10px] bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded font-mono">实时动态推算</span>
               </div>
-              <div class="text-emerald-200/90 leading-snug whitespace-pre-line">{{ formatText(currentAnalysis.doReasons) }}</div>
-            </div>
 
-            <div class="bg-red-950/40 border border-red-500/30 p-2.5 rounded-xl">
-              <div class="text-red-400 font-bold mb-0.5 flex items-center gap-1">
-                <el-icon><CloseBold /></el-icon>
-                <span>【不推荐/禁忌操作】</span>
+              <!-- 核心分层战术推演 -->
+              <div class="space-y-2 mt-2">
+                <!-- 场景 A: 涨停 / 跌停 封板做不了 T -->
+                <template v-if="selectedStock.currentPrice > 0 && selectedStock.yesterdayPrice > 0 && (selectedStock.currentPrice / selectedStock.yesterdayPrice >= 1.098 || selectedStock.currentPrice / selectedStock.yesterdayPrice <= 0.902)">
+                  <div class="bg-amber-950/50 border border-amber-500/50 p-2 rounded-lg text-amber-200">
+                    <div class="font-bold text-amber-300 text-xs mb-1">🔒【今日做不了 T 说明】：</div>
+                    <p class="leading-relaxed">
+                      当前股票已强行封住 <span class="font-bold text-amber-400">{{ selectedStock.currentPrice / selectedStock.yesterdayPrice >= 1.098 ? '涨停板' : '跌停板' }} (¥{{ selectedStock.currentPrice.toFixed(2) }})</span>！
+                      主力资金筹码高度锁定，日内无做 T 波动空间，强行撤单做 T 极易导致卖飞或无法成交。
+                    </p>
+                    <div class="mt-1 pt-1 border-t border-amber-500/30 font-bold text-amber-300">
+                      💡 明确后续动作：今日建议停止任何做 T 操作！保持持仓锁仓，等待明日开盘 (09:20) 观察集合竞价动向与资金溢价后再行制定做 T 计划。
+                    </div>
+                  </div>
+                </template>
+
+                <!-- 场景 B: 空间振幅 <= 1.0% 或价格极小波动 -->
+                <template v-else-if="(selectedStock.predictedHigh - selectedStock.predictedLow) / selectedStock.yesterdayPrice < 0.01">
+                  <div class="bg-slate-900/80 border border-slate-700/80 p-2 rounded-lg text-slate-300">
+                    <div class="font-bold text-slate-200 text-xs mb-1">⏸️【今日做不了 T 说明】：</div>
+                    <p class="leading-relaxed">
+                      今日做 T 预测振幅差价小于 1.0% (仅 ¥{{ (selectedStock.predictedHigh - selectedStock.predictedLow).toFixed(2) }})，扣除印花税与券商佣金后无有效盈利空间。
+                    </p>
+                    <div class="mt-1 pt-1 border-t border-slate-700/50 font-bold text-cyan-300">
+                      💡 明确后续动作：今日不宜继续盲目操作，建议观望并等待明日出现清晰的箱体空间再行出击。
+                    </div>
+                  </div>
+                </template>
+
+                <!-- 场景 C: 正常波动做 T 明确指示 -->
+                <template v-else>
+                  <!-- 1. 明确预判走向与做 T 方向 -->
+                  <div class="flex items-center justify-between bg-slate-950/70 p-2 rounded-lg border border-slate-800">
+                    <span class="text-slate-400">当前实时走向推算：</span>
+                    <span :class="selectedStock.currentPrice >= selectedStock.yesterdayPrice ? 'text-red-400 font-bold' : 'text-emerald-400 font-bold'">
+                      {{ selectedStock.currentPrice >= selectedStock.yesterdayPrice ? '📈 偏强震荡/上攻' : '📉 承压回调/寻底' }}
+                    </span>
+                  </div>
+
+                  <!-- 2. 具体买卖与接回价位明确指示 -->
+                  <div class="space-y-1.5 text-[11px] leading-relaxed">
+                    <div class="bg-emerald-950/40 border border-emerald-500/30 p-2 rounded-lg">
+                      <span class="font-bold text-emerald-400">🎯 【高抛卖出及低位接回指示】：</span>
+                      若您打算高抛做 T，建议在 <span class="font-bold text-red-400">¥{{ selectedStock.predictedHigh.toFixed(2) }}</span> 附近挂单高抛卖出；
+                      卖出成功后，请耐性等待股价回调至 <span class="font-bold text-emerald-400">¥{{ selectedStock.predictedLow.toFixed(2) }}</span> 附近逢低接回 T 仓，锁定做 T 差价。
+                    </div>
+
+                    <div class="bg-cyan-950/40 border border-cyan-500/30 p-2 rounded-lg">
+                      <span class="font-bold text-cyan-400">🎯 【低吸建仓及高位冲高抛出指示】：</span>
+                      若您打算先买后卖做 T，建议在 <span class="font-bold text-emerald-400">¥{{ selectedStock.predictedLow.toFixed(2) }}</span> 支撑位附近低吸挂单；
+                      低吸成交后，若拉升至 <span class="font-bold text-red-400">¥{{ selectedStock.predictedHigh.toFixed(2) }}</span> 附近请果断抛出日内加仓部分。
+                    </div>
+
+                    <!-- 3. 止损预案 -->
+                    <div class="bg-red-950/40 border border-red-500/30 p-2 rounded-lg text-red-200">
+                      <span class="font-bold text-red-400">🚨 【破位极端应对】：</span>
+                      若低吸后股价跌破 <span class="font-bold text-red-300">¥{{ (selectedStock.predictedLow * 0.985).toFixed(2) }}</span> (破位 1.5%)，代表日内多头防守失效，必须在 14:30 前坚决平 T 仓止损，严禁重仓扛单。
+                    </div>
+                  </div>
+                </template>
               </div>
-              <div class="text-red-200/90 leading-snug whitespace-pre-line">{{ formatText(currentAnalysis.dontReasons) }}</div>
             </div>
 
             <div class="bg-slate-950/80 p-2.5 rounded-xl border border-slate-800/80">

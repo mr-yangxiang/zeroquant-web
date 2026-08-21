@@ -601,19 +601,33 @@
           </button>
         </div>
 
-        <!-- 底部输入框与发送 -->
-        <div class="p-3 bg-slate-900 border-t border-slate-800 flex gap-2">
+        <!-- 底部输入框与语音录入 & 发送 -->
+        <div class="p-3 bg-slate-900 border-t border-slate-800 flex items-center gap-2">
+          <!-- 🎙️ 语音识别按钮 (带呼吸动效与自动纠错) -->
+          <button
+            @click="toggleVoiceRecording"
+            :class="[
+              'p-2.5 rounded-xl border flex items-center justify-center transition-all shrink-0 active:scale-95',
+              isRecordingVoice
+                ? 'bg-rose-600/30 border-rose-500 text-rose-400 animate-pulse shadow-lg shadow-rose-500/20'
+                : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
+            ]"
+            :title="isRecordingVoice ? '点击停止录音并自动纠错转写' : '点击开启语音录入（支持交易口语自动纠错）'"
+          >
+            <span class="text-base">{{ isRecordingVoice ? '🔴' : '🎙️' }}</span>
+          </button>
+
           <textarea
             v-model="chatInput"
             @keydown.enter.prevent="handleSendChat"
-            placeholder="输入您对行情的疑虑、咨询做T策略，或输入您的判断来矫正分析师预测..."
+            :placeholder="isRecordingVoice ? '🎙️ 正在聆听您的语音指令（如：刚我3.85又买了1000股）...' : '输入指令、咨询做T策略，或语音录入...'"
             rows="2"
             class="flex-1 bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 resize-none"
           ></textarea>
           <button
             @click="handleSendChat"
             :disabled="isSendingChat || !chatInput.trim()"
-            class="px-5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-extrabold text-xs shadow-lg shadow-cyan-500/20 active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center gap-1 shrink-0"
+            class="px-5 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-extrabold text-xs shadow-lg shadow-cyan-500/20 active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center gap-1 shrink-0"
           >
             <span>{{ isSendingChat ? '推演中...' : '发送' }}</span>
           </button>
@@ -1131,6 +1145,98 @@ const chatMessages = ref<any[]>([])
 const chatInput = ref('')
 const isSendingChat = ref(false)
 const chatContainerRef = ref<HTMLElement | null>(null)
+const isRecordingVoice = ref(false)
+const recognitionRef = ref<any>(null)
+
+// 中文交易口语与数字同音字自动清洗纠错
+const cleanVoiceTradingText = (text: string) => {
+  if (!text) return ''
+  return text
+    .replace(/块钱|块前|快钱/g, '元')
+    .replace(/买聊|买辽|迈聊/g, '买了')
+    .replace(/卖聊|卖辽|出聊|抛聊/g, '卖了')
+    .replace(/建仓聊/g, '建仓了')
+    .replace(/加仓聊/g, '加仓了')
+    .replace(/减仓聊/g, '减仓了')
+    .replace(/平仓聊/g, '平仓了')
+    .replace(/止损聊/g, '止损了')
+    .replace(/三块八毛五|三块八五|3块8毛5/g, '3.85')
+    .replace(/三块九毛|三块九|3块9/g, '3.90')
+    .replace(/三块八/g, '3.80')
+    .replace(/四块零二|四块零两分/g, '4.02')
+    .replace(/四块/g, '4.00')
+    .replace(/七块零五|七块五分/g, '7.05')
+    .replace(/七块/g, '7.00')
+    .replace(/十四块八/g, '14.80')
+    .replace(/十五块四/g, '15.40')
+    .replace(/一千股|1千股/g, '1000股')
+    .replace(/两千股|2千股|二千股/g, '2000股')
+    .replace(/三千股|3千股/g, '3000股')
+    .replace(/四千股|4千股/g, '4000股')
+    .replace(/五千股|5千股/g, '5000股')
+    .replace(/一万股|1万股/g, '10000股')
+    .replace(/一手/g, '100股')
+    .replace(/十手/g, '1000股')
+    .replace(/二十手/g, '2000股')
+    .replace(/五十手/g, '5000股')
+}
+
+// 语音识别录音与实时纠错
+const toggleVoiceRecording = () => {
+  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+  if (!SpeechRecognition) {
+    ElMessage.warning('当前浏览器暂未开放语音识别接口，建议使用键盘语音输入或手动输入 🎙️')
+    return
+  }
+
+  if (isRecordingVoice.value) {
+    if (recognitionRef.value) {
+      try { recognitionRef.value.stop() } catch (_) {}
+    }
+    isRecordingVoice.value = false
+    ElMessage.success('语音录入结束 ✨')
+    return
+  }
+
+  try {
+    const recognition = new SpeechRecognition()
+    recognition.lang = 'zh-CN'
+    recognition.continuous = false
+    recognition.interimResults = true
+
+    recognition.onstart = () => {
+      isRecordingVoice.value = true
+      ElMessage.info('🎙️ 正在聆听您的交易指令与提问...')
+    }
+
+    recognition.onresult = (event: any) => {
+      let transcript = ''
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        transcript += event.results[i][0].transcript
+      }
+      if (transcript) {
+        chatInput.value = cleanVoiceTradingText(transcript)
+      }
+    }
+
+    recognition.onerror = (event: any) => {
+      isRecordingVoice.value = false
+      if (event.error !== 'no-speech') {
+        ElMessage.error('语音识别异常: ' + event.error)
+      }
+    }
+
+    recognition.onend = () => {
+      isRecordingVoice.value = false
+    }
+
+    recognitionRef.value = recognition
+    recognition.start()
+  } catch (err: any) {
+    isRecordingVoice.value = false
+    ElMessage.error('启动麦克风失败，请确认录音权限')
+  }
+}
 
 const formatMarkdownToHtml = (content: string) => {
   if (!content) return ''
@@ -1185,6 +1291,11 @@ const handleSendChat = async () => {
     })
     chatMessages.value.push(res.data)
     scrollChatToBottom()
+    
+    // 如果包含操作，同时刷新左侧实盘仓位与战术卡片
+    if (res.data?.content && (res.data.content.includes('实盘操作已同步') || res.data.content.includes('实盘买入') || res.data.content.includes('实盘高抛') || res.data.content.includes('持仓底仓已同步'))) {
+      fetchAdvancedHistory(selectedDate.value)
+    }
   } catch (err: any) {
     ElMessage.error(err.response?.data?.message || '量化分析师推演超时，请稍后重试')
   } finally {

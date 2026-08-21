@@ -491,6 +491,135 @@
         </div>
       </div>
     </main>
+
+    <!-- 🤖 首席量化策略分析师 · 悬浮交互对弈入口 -->
+    <button
+      @click="openAiChat"
+      class="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-extrabold text-xs shadow-2xl shadow-cyan-500/30 border border-cyan-400/50 active:scale-95 transition-all group"
+      title="点击打开量化策略分析师智能对话与预测矫正窗口"
+    >
+      <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+      <span class="text-base">🤖</span>
+      <span>首席量化分析师 · 对弈</span>
+    </button>
+
+    <!-- 🤖 首席量化策略分析师 · 对弈与预测矫正抽屉 -->
+    <el-drawer
+      v-model="isChatOpen"
+      direction="rtl"
+      size="85%"
+      :with-header="false"
+      class="custom-chat-drawer !bg-slate-950 !border-l !border-slate-800"
+    >
+      <div class="flex flex-col h-full text-slate-100 font-sans">
+        <!-- 抽屉顶部 Header -->
+        <div class="p-4 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center text-xl text-white shadow-lg shadow-cyan-500/30">
+              👨‍💼
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="text-sm font-extrabold text-white">ZeroQuant 首席量化策略分析师</h3>
+                <span class="bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 px-2 py-0.5 rounded text-[10px] font-bold">15年实盘量化</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
+                <span>实盘智脑实时在线 · 深度归因、做T挂单测算与预测矫正</span>
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <el-button size="small" type="danger" plain @click="handleClearChat" title="清空对话记录">清空历史</el-button>
+            <el-button size="small" circle @click="isChatOpen = false">✕</el-button>
+          </div>
+        </div>
+
+        <!-- 当前标的与实时盘口状态卡片 -->
+        <div v-if="selectedStock" class="bg-cyan-950/40 border-b border-cyan-900/40 px-4 py-2 flex items-center justify-between text-xs">
+          <div class="flex items-center gap-2">
+            <span class="text-slate-400">当前对弈标的:</span>
+            <span class="font-bold text-cyan-300">{{ selectedStock.name }} ({{ selectedStock.code }})</span>
+            <span class="font-mono font-bold" :class="selectedStock.pct >= 0 ? 'text-red-400' : 'text-emerald-400'">
+              ¥{{ selectedStock.currentPrice.toFixed(2) }} ({{ selectedStock.pct >= 0 ? '+' : '' }}{{ selectedStock.pct.toFixed(2) }}%)
+            </span>
+          </div>
+          <div class="text-[11px] text-slate-400 font-mono">
+            预判做T区间: <span class="text-emerald-400">¥{{ selectedStock.predictedLow.toFixed(2) }}</span> ~ <span class="text-red-400">¥{{ selectedStock.predictedHigh.toFixed(2) }}</span>
+          </div>
+        </div>
+
+        <!-- 消息列表滚动区 -->
+        <div ref="chatContainerRef" class="flex-1 overflow-y-auto p-4 space-y-4">
+          <div
+            v-for="(msg, idx) in chatMessages"
+            :key="idx"
+            :class="msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'"
+          >
+            <div
+              :class="[
+                'max-w-[90%] rounded-2xl p-3.5 text-xs leading-relaxed shadow-lg',
+                msg.role === 'user'
+                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-tr-none'
+                  : 'bg-slate-900/95 border border-slate-700/80 text-slate-200 rounded-tl-none space-y-2'
+              ]"
+            >
+              <div v-if="msg.role === 'assistant'" class="flex items-center justify-between border-b border-slate-800 pb-1 mb-1 text-[10px] text-slate-400 font-mono">
+                <span class="font-bold text-cyan-400">🤖 首席量化策略分析师</span>
+                <span>{{ msg.createdAt || '刚刚' }}</span>
+              </div>
+              <div class="whitespace-pre-line leading-relaxed" v-html="formatMarkdownToHtml(msg.content)"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 快捷问答 Chips 预设栏 -->
+        <div class="p-2.5 bg-slate-900/80 border-t border-slate-800 flex flex-wrap gap-2">
+          <button
+            @click="handleQuickQuestion('为什么今天预测有偏离？请深度量化归因并复盘')"
+            class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-medium transition-colors"
+          >
+            📊 预测偏差量化归因
+          </button>
+          <button
+            @click="handleQuickQuestion('结合我名下持仓和成本，给出最精准的做T挂单点位与仓位分配')"
+            class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-medium transition-colors"
+          >
+            🎯 结合个人成本算挂单点
+          </button>
+          <button
+            @click="handleQuickQuestion('请根据当前最新 Level-2 逐笔大单诊断主力席位资金在撤单还是买入')"
+            class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-medium transition-colors"
+          >
+            ⚡ Level-2 主力资金诊断
+          </button>
+          <button
+            @click="handleQuickQuestion('向你反馈盘口异动：我觉得午后主力要砸盘，请校正支撑位与防守预案')"
+            class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-cyan-500/30 text-[11px] font-medium transition-colors"
+          >
+            🔧 反馈并矫正预测
+          </button>
+        </div>
+
+        <!-- 底部输入框与发送 -->
+        <div class="p-3 bg-slate-900 border-t border-slate-800 flex gap-2">
+          <textarea
+            v-model="chatInput"
+            @keydown.enter.prevent="handleSendChat"
+            placeholder="输入您对行情的疑虑、咨询做T策略，或输入您的判断来矫正分析师预测..."
+            rows="2"
+            class="flex-1 bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 resize-none"
+          ></textarea>
+          <button
+            @click="handleSendChat"
+            :disabled="isSendingChat || !chatInput.trim()"
+            class="px-5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-extrabold text-xs shadow-lg shadow-cyan-500/20 active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center gap-1 shrink-0"
+          >
+            <span>{{ isSendingChat ? '推演中...' : '发送' }}</span>
+          </button>
+        </div>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
@@ -993,6 +1122,97 @@ const tacticalAdvice = computed(() => {
   // 4. 无特异解盘事件时返回 null，由右侧统一卡片精炼显示，避免左侧重复显示冗余常规指导
   return null
 })
+
+// ==========================================
+// 🤖 首席量化策略分析师 · AI 实时对话与预测矫正逻辑
+// ==========================================
+const isChatOpen = ref(false)
+const chatMessages = ref<any[]>([])
+const chatInput = ref('')
+const isSendingChat = ref(false)
+const chatContainerRef = ref<HTMLElement | null>(null)
+
+const formatMarkdownToHtml = (content: string) => {
+  if (!content) return ''
+  return content
+    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-cyan-300 font-bold">$1</strong>')
+    .replace(/^### (.*$)/gim, '<h3 class="text-xs font-black text-cyan-400 border-b border-slate-800 pb-1 my-1">$1</h3>')
+    .replace(/^- (.*$)/gim, '<div class="pl-2 flex items-start gap-1.5"><span class="text-cyan-400 font-bold">•</span><span>$1</span></div>')
+}
+
+const scrollChatToBottom = () => {
+  nextTick(() => {
+    if (chatContainerRef.value) {
+      chatContainerRef.value.scrollTop = chatContainerRef.value.scrollHeight
+    }
+  })
+}
+
+const fetchChatMessages = async () => {
+  if (!selectedStock.value) return
+  try {
+    const res: any = await api.get(`/chat/messages?stockCode=${selectedStock.value.code}`)
+    chatMessages.value = res.data || []
+    scrollChatToBottom()
+  } catch (err: any) {
+    console.error('Fetch chat error:', err)
+  }
+}
+
+const openAiChat = () => {
+  isChatOpen.value = true
+  fetchChatMessages()
+}
+
+const handleSendChat = async () => {
+  if (!selectedStock.value || !chatInput.value.trim() || isSendingChat.value) return
+  const userText = chatInput.value.trim()
+  chatInput.value = ''
+  
+  // 先把用户消息推入列表
+  chatMessages.value.push({
+    role: 'user',
+    content: userText,
+    createdAt: dayjs().tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm:ss')
+  })
+  scrollChatToBottom()
+
+  isSendingChat.value = true
+  try {
+    const res: any = await api.post('/chat/send', {
+      stockCode: selectedStock.value.code,
+      message: userText
+    })
+    chatMessages.value.push(res.data)
+    scrollChatToBottom()
+  } catch (err: any) {
+    ElMessage.error(err.response?.data?.message || '量化分析师推演超时，请稍后重试')
+  } finally {
+    isSendingChat.value = false
+  }
+}
+
+const handleQuickQuestion = async (q: string) => {
+  chatInput.value = q
+  await handleSendChat()
+}
+
+const handleClearChat = async () => {
+  if (!selectedStock.value) return
+  try {
+    await ElMessageBox.confirm('确定清空当前标的与量化分析师的历史推演对话吗？', '清空确认', {
+      confirmButtonText: '清空',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await api.delete(`/chat/messages?stockCode=${selectedStock.value.code}`)
+    chatMessages.value = []
+    ElMessage.success('对话记录已清空')
+    fetchChatMessages()
+  } catch (err: any) {
+    if (err !== 'cancel') ElMessage.error('清空失败')
+  }
+}
 
 const handleLogout = () => {
   localStorage.removeItem('zeroquant_token')

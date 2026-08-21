@@ -1355,6 +1355,9 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (timer) clearInterval(timer)
+  if (recognitionRef.value) {
+    try { recognitionRef.value.stop() } catch (_) {}
+  }
   if (chartInstance) {
     window.removeEventListener('resize', handleResize)
     chartInstance.dispose()

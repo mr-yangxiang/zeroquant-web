@@ -565,10 +565,19 @@
               ]"
             >
               <div v-if="msg.role === 'assistant'" class="flex items-center justify-between border-b border-slate-800 pb-1 mb-1 text-[10px] text-slate-400 font-mono">
-                <span class="font-bold text-cyan-400">🤖 首席量化策略分析师</span>
+                <div class="flex items-center gap-1.5">
+                  <span class="font-bold text-cyan-400">🤖 首席量化策略分析师</span>
+                  <span v-if="msg.isTyping" class="inline-flex items-center gap-0.5 text-cyan-400 font-normal">
+                    <span class="w-1 h-1 rounded-full bg-cyan-400 animate-ping"></span>
+                    <span>输出中...</span>
+                  </span>
+                </div>
                 <span>{{ msg.createdAt || '刚刚' }}</span>
               </div>
-              <div class="whitespace-pre-line leading-relaxed" v-html="formatMarkdownToHtml(msg.content)"></div>
+              <div class="whitespace-pre-line leading-relaxed">
+                <span v-html="formatMarkdownToHtml(msg.displayContent !== undefined ? msg.displayContent : msg.content)"></span>
+                <span v-if="msg.isTyping" class="inline-block w-1.5 h-3.5 bg-cyan-400 ml-0.5 animate-pulse align-middle"></span>
+              </div>
             </div>
           </div>
         </div>
@@ -638,7 +647,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, nextTick, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
@@ -1270,6 +1279,38 @@ const openAiChat = () => {
   fetchChatMessages()
 }
 
+// 4. 拟真流式打字机逐字输出组件
+const typewriterEffect = (targetMsg: any, fullText: string, onComplete?: () => void) => {
+  let currentIndex = 0
+  targetMsg.displayContent = ''
+  targetMsg.isTyping = true
+  
+  const totalLength = fullText.length
+  const step = totalLength > 600 ? 3 : (totalLength > 250 ? 2 : 1)
+  const interval = totalLength > 600 ? 12 : 18
+
+  const timer = setInterval(() => {
+    currentIndex += step
+    if (currentIndex >= totalLength) {
+      targetMsg.displayContent = fullText
+      targetMsg.isTyping = false
+      clearInterval(timer)
+      scrollChatToBottom()
+      if (onComplete) onComplete()
+    } else {
+      targetMsg.displayContent = fullText.slice(0, currentIndex)
+      if (chatContainerRef.value) {
+        chatContainerRef.value.scrollTop = chatContainerRef.value.scrollHeight
+      }
+    }
+  }, interval)
+}
+
+const handleQuickQuestion = async (q: string) => {
+  chatInput.value = q
+  await handleSendChat()
+}
+
 const handleSendChat = async () => {
   if (!selectedStock.value || !chatInput.value.trim() || isSendingChat.value) return
   const userText = chatInput.value.trim()
@@ -1289,23 +1330,32 @@ const handleSendChat = async () => {
       stockCode: selectedStock.value.code,
       message: userText
     })
-    chatMessages.value.push(res.data)
+    
+    // 创建打字机消息占位
+    const assistantMsg = reactive({
+      id: res.data?.id || 0,
+      role: 'assistant',
+      content: res.data?.content || '',
+      displayContent: '',
+      isTyping: true,
+      createdAt: res.data?.createdAt || dayjs().tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm:ss')
+    })
+    chatMessages.value.push(assistantMsg)
     scrollChatToBottom()
     
-    // 如果包含操作，同时刷新左侧实盘仓位与战术卡片
-    if (res.data?.content && (res.data.content.includes('实盘操作已同步') || res.data.content.includes('实盘买入') || res.data.content.includes('实盘高抛') || res.data.content.includes('持仓底仓已同步'))) {
-      fetchAdvancedHistory(selectedDate.value)
-    }
+    // 启动拟真打字机逐字输出
+    typewriterEffect(assistantMsg, res.data?.content || '', () => {
+      // 输出完成后，如果包含交易操作，刷新左侧实盘仓位与战术卡片
+      if (res.data?.content && (res.data.content.includes('实盘操作已同步') || res.data.content.includes('实盘买入') || res.data.content.includes('实盘高抛') || res.data.content.includes('持仓底仓已同步'))) {
+        loadAdvancedHistory(selectedStock.value.code)
+      }
+    })
   } catch (err: any) {
-    ElMessage.error(err.response?.data?.message || '量化分析师推演超时，请稍后重试')
+    console.error('Chat error:', err)
+    ElMessage.error(err.response?.data?.message || err.message || '量化分析师推演超时，请稍后重试')
   } finally {
     isSendingChat.value = false
   }
-}
-
-const handleQuickQuestion = async (q: string) => {
-  chatInput.value = q
-  await handleSendChat()
 }
 
 const handleClearChat = async () => {

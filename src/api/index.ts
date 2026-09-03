@@ -3,7 +3,7 @@ import { ElMessage } from 'element-plus'
 
 const api = axios.create({
   baseURL: '/zeroquant/api/v1',
-  timeout: 15000,
+  timeout: 120000,
 })
 
 // 请求拦截器

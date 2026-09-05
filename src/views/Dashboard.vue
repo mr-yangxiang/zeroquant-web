@@ -107,11 +107,11 @@
                   {{ selectedDate }}
                 </span>
 
-                <!-- 开盘前 10min 09:20 终极看涨/看跌幅度 Badge (仅在非历史日期显示) -->
+                <!-- 09:20 概率基线摘要 -->
                 <span v-if="!isHistoryView && basePrediction"
                   class="text-[10px] font-mono font-black px-2 py-0.5 rounded-full border shadow-sm flex items-center gap-1"
                   :class="basePrediction.direction === '看涨' ? 'bg-red-950/90 border-red-500/80 text-red-400' : 'bg-emerald-950/90 border-emerald-500/80 text-emerald-400'">
-                  <span>09:20 终极预判:</span>
+                  <span>09:20 概率基线:</span>
                   <span>{{ basePrediction.direction }} {{ basePrediction.targetPct >= 0 ? '+' : '' }}{{ basePrediction.targetPct }}%</span>
                 </span>
 
@@ -122,14 +122,10 @@
                   <span>{{ p.direction || '看涨' }} {{ p.targetPct >= 0 ? '+' : '' }}{{ p.targetPct || 1.2 }}%</span>
                 </span>
               </h2>
-              <p class="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 leading-snug">① 09:20 终极基准预判线 (固定实线) ② 盘中动态重塑全天趋势线 (黄虚线 - 实时重塑全天走向) ③ 重模拟对比线 ④ 真实开盘轨迹 (红实线)</p>
+              <p class="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 leading-snug">中位路径与 P10/P90 风险边界用于表达不确定性；真实轨迹不会被盘中预测回写。</p>
             </div>
             
             <div class="flex items-center gap-2 self-end sm:self-auto">
-              <el-button v-if="hasDeviated" type="warning" size="small" class="!text-[11px] !px-2" @click="handleRePredict">
-                <el-icon class="mr-1"><TrendCharts /></el-icon> 重新模拟新线
-              </el-button>
-              
               <!-- 科技风发光双向刷新按钮 -->
               <button
                 @click="loadAdvancedHistory(selectedStock.code)"
@@ -140,6 +136,28 @@
                 <span>刷新轨迹</span>
               </button>
             </div>
+          </div>
+
+          <div v-if="latestForecast && !isHistoryView" class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-2 text-[10px] font-mono">
+            <div class="bg-slate-950/80 border border-slate-700 rounded-lg p-2">
+              <div class="text-slate-500">模型状态</div>
+              <div :class="primaryForecast?.actionable ? 'text-emerald-400' : 'text-amber-400'">{{ latestForecast.modelState }}</div>
+            </div>
+            <div class="bg-slate-950/80 border border-red-900/50 rounded-lg p-2">
+              <div class="text-slate-500">15m 上涨</div><div class="text-red-400 font-bold">{{ formatProbability(primaryForecast?.pUp) }}</div>
+            </div>
+            <div class="bg-slate-950/80 border border-slate-700 rounded-lg p-2">
+              <div class="text-slate-500">15m 震荡</div><div class="text-slate-200 font-bold">{{ formatProbability(primaryForecast?.pFlat) }}</div>
+            </div>
+            <div class="bg-slate-950/80 border border-emerald-900/50 rounded-lg p-2">
+              <div class="text-slate-500">15m 下跌</div><div class="text-emerald-400 font-bold">{{ formatProbability(primaryForecast?.pDown) }}</div>
+            </div>
+            <div class="bg-slate-950/80 border border-cyan-900/50 rounded-lg p-2">
+              <div class="text-slate-500">数据质量</div><div class="text-cyan-400 font-bold">{{ formatProbability(latestForecast.features?.qualityScore) }}</div>
+            </div>
+          </div>
+          <div v-if="latestForecast && !primaryForecast?.actionable && !isHistoryView" class="mb-2 bg-amber-950/40 border border-amber-500/40 text-amber-200 text-[11px] rounded-lg p-2">
+            研究模式：模型尚未通过走样本外训练与概率校准，本页仅展示概率和风险区间，不生成自动交易指令。
           </div>
 
           <!-- ECharts 容器 (移动端高度 220px / 桌面端 280px 响应式) -->
@@ -255,14 +273,14 @@
             <span>{{ selectedStock.name }} 盘中关键位</span>
           </h3>
 
-          <!-- 做 T 预测关键位 (与 ECharts 预测折线极值 100% 精确对齐) -->
+          <!-- 概率区间边界 -->
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 font-mono text-xs">
             <div class="bg-slate-950/80 p-1.5 sm:p-2 rounded-xl border border-emerald-500/40 text-center">
-              <div class="text-[10px] text-emerald-400 font-bold">预测低吸支撑</div>
+              <div class="text-[10px] text-emerald-400 font-bold">P10 风险下界</div>
               <div class="text-emerald-400 font-bold text-xs mt-0.5">¥{{ selectedStock.predictedLow.toFixed(2) }}</div>
             </div>
             <div class="bg-slate-950/80 p-1.5 sm:p-2 rounded-xl border border-red-500/40 text-center">
-              <div class="text-[10px] text-red-400 font-bold">预测高抛阻力</div>
+              <div class="text-[10px] text-red-400 font-bold">P90 风险上界</div>
               <div class="text-red-400 font-bold text-xs mt-0.5">¥{{ selectedStock.predictedHigh.toFixed(2) }}</div>
             </div>
             <div class="bg-slate-950/60 p-1.5 sm:p-2 rounded-xl border border-slate-800 text-center">
@@ -270,7 +288,7 @@
               <div class="text-cyan-400 font-bold text-xs mt-0.5">¥{{ selectedStock.currentPrice.toFixed(2) }}</div>
             </div>
             <div class="bg-slate-950/60 p-1.5 sm:p-2 rounded-xl border border-slate-800 text-center">
-              <div class="text-[10px] text-slate-400">做 T 空间振幅</div>
+              <div class="text-[10px] text-slate-400">预测区间宽度</div>
               <div class="text-amber-400 font-bold text-xs mt-0.5">¥{{ (selectedStock.predictedHigh - selectedStock.predictedLow).toFixed(2) }}</div>
             </div>
           </div>
@@ -289,7 +307,7 @@
                 <el-icon><Compass /></el-icon>
                 <span>【🎯 实盘做 T 决策与后续动作指引】</span>
               </div>
-              <span class="text-[10px] bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded font-mono">1min 实时重塑</span>
+              <span class="text-[10px] bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded font-mono">1min 概率更新</span>
             </div>
 
             <!-- 1. 实时分盘与封板/破位状态判断条 -->
@@ -325,13 +343,13 @@
               <template v-else>
                 <div class="bg-emerald-950/40 border border-emerald-500/40 p-2 rounded-lg text-emerald-200 flex items-center justify-between">
                   <span>🟢 <span class="font-bold text-emerald-300">常态箱体震荡</span> [¥{{ selectedStock.predictedLow.toFixed(2) }} ~ ¥{{ selectedStock.predictedHigh.toFixed(2) }}]</span>
-                  <span class="font-mono text-[10px] text-emerald-400 font-bold">按预判做 T</span>
+                  <span class="font-mono text-[10px] text-emerald-400 font-bold">位于风险区间</span>
                 </div>
               </template>
             </div>
 
             <!-- 2. 精准高对比做 T 动作与操作指示框 (零冗余废话，一秒读懂价位) -->
-            <div v-if="!((selectedStock.currentPrice / selectedStock.yesterdayPrice >= 1.098 || selectedStock.currentPrice / selectedStock.yesterdayPrice <= 0.902) || (selectedStock.predictedHigh - selectedStock.predictedLow) / selectedStock.yesterdayPrice < 0.01)" class="grid grid-cols-1 gap-1.5 text-[11px] font-mono">
+            <div v-if="primaryForecast?.actionable && !((selectedStock.currentPrice / selectedStock.yesterdayPrice >= 1.098 || selectedStock.currentPrice / selectedStock.yesterdayPrice <= 0.902) || (selectedStock.predictedHigh - selectedStock.predictedLow) / selectedStock.yesterdayPrice < 0.01)" class="grid grid-cols-1 gap-1.5 text-[11px] font-mono">
               <div class="bg-red-950/40 border border-red-500/30 p-2 rounded-lg flex items-center justify-between">
                 <div>
                   <span class="font-bold text-red-400">🔴 高抛动作:</span>
@@ -359,12 +377,12 @@
             </div>
           </div>
 
-          <div v-if="currentAnalysis" class="space-y-2 text-[11px]">
+          <div v-if="currentAnalysis && primaryForecast?.actionable" class="space-y-2 text-[11px]">
             <!-- 核心主控席位与历史行为观察 -->
             <div class="bg-cyan-950/40 border border-cyan-500/30 p-2.5 rounded-xl">
               <div class="text-cyan-400 font-bold mb-0.5 flex items-center gap-1">
                 <el-icon><User /></el-icon>
-                <span>【核心主控席位与 500 日分时习惯分析】</span>
+                <span>【经验证的资金行为特征】</span>
               </div>
               <div class="text-cyan-200/90 leading-snug whitespace-pre-line">{{ formatText(currentAnalysis.hostStyle) }}</div>
             </div>
@@ -591,7 +609,7 @@
             📊 预测偏差量化归因
           </button>
           <button
-            @click="handleQuickQuestion('结合我名下持仓和成本，给出最精准的做T挂单点位与仓位分配')"
+            @click="handleQuickQuestion('结合我的持仓成本，解释当前概率区间、最大风险和需要观察的确认信号')"
             class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-medium transition-colors"
           >
             🎯 结合个人成本算挂单点
@@ -672,12 +690,11 @@ const advancedHistory = ref<any>({
   predictions: [],
   rollingPredictions: []
 })
+const latestForecast = ref<any>(null)
 
 const chartRef = ref<HTMLElement | null>(null)
 let chartInstance: echarts.ECharts | null = null
 let timer: any = null
-
-const hasDeviated = ref(false)
 
 const currentAnalysis = computed(() => {
   if (!selectedStock.value || !selectedStock.value.analyses || selectedStock.value.analyses.length === 0) return null
@@ -693,6 +710,16 @@ const versionPredictions = computed(() => {
   if (!advancedHistory.value.predictions) return []
   return advancedHistory.value.predictions.filter((p: any) => !p.isBase)
 })
+
+const primaryForecast = computed(() => {
+  if (!latestForecast.value?.horizons) return null
+  return latestForecast.value.horizons.find((item: any) => item.horizonMinutes === 15) || latestForecast.value.horizons[0] || null
+})
+
+const formatProbability = (value: unknown) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? `${(parsed * 100).toFixed(1)}%` : '--'
+}
 
 const isLimitLocked = computed(() => {
   if (!selectedStock.value) return false
@@ -739,6 +766,16 @@ const loadAdvancedHistory = async (code: string) => {
     const queryDate = selectedDate.value || defaultDate
     const res: any = await api.get(`/stocks/${code}/advanced-history?date=${queryDate}`)
     advancedHistory.value = res.data || { realHistories: [], predictions: [], rollingPredictions: [] }
+    if (queryDate === defaultDate) {
+      try {
+        const forecastRes: any = await api.get(`/quant/stocks/${code}/latest-forecast`)
+        latestForecast.value = forecastRes.data || null
+      } catch (_) {
+        latestForecast.value = null
+      }
+    } else {
+      latestForecast.value = null
+    }
     
     // 加载个人持仓与实盘动作
     if (res.data.position) {
@@ -751,31 +788,6 @@ const loadAdvancedHistory = async (code: string) => {
 
     await nextTick()
     renderChart()
-  } catch (err) {
-    //
-  }
-}
-
-const handleRePredict = async () => {
-  if (!selectedStock.value) return
-  try {
-    const newPoints = []
-    const base = selectedStock.value.currentPrice
-    for (let i = 0; i < 241; i++) {
-      const timeStr = i < 121 
-        ? `${Math.floor(9 + i/60).toString().padStart(2,'0')}:${(i%60).toString().padStart(2,'0')}` 
-        : `${Math.floor(13 + (i-121)/60).toString().padStart(2,'0')}:${((i-121)%60).toString().padStart(2,'0')}`
-      const wave = Math.sin(i / 10.0) * (base * 0.02)
-      newPoints.push({ time: timeStr, price: Number((base + wave).toFixed(2)) })
-    }
-
-    await api.post('/stocks/re-predict', {
-      stockCode: selectedStock.value.code,
-      date: selectedDate.value,
-      newTimePoints: newPoints
-    })
-    ElMessage.success('成功重新模拟生成全新版本预测对比线！')
-    await loadAdvancedHistory(selectedStock.value.code)
   } catch (err) {
     //
   }
@@ -819,13 +831,19 @@ const renderChart = () => {
     const basePrices = basePrediction ? basePrediction.timePoints.map((tp: any) => tp.price) : []
     if (basePrices.length > 0) {
       series.push({
-        name: '① 09:20 终极基准预判线 (不可修改实线)',
+        name: '① 预测中位路径 P50',
         type: 'line',
         smooth: true,
         data: basePrices,
         itemStyle: { color: '#06b6d4' },
         lineStyle: { width: 2.5, type: 'solid' },
       })
+      const lower = basePrediction.timePoints.map((tp: any) => tp.lower ?? null)
+      const upper = basePrediction.timePoints.map((tp: any) => tp.upper ?? null)
+      if (lower.some((value: any) => value !== null)) {
+        series.push({ name: 'P10 风险下界', type: 'line', smooth: true, data: lower, symbol: 'none', itemStyle: { color: '#10b981' }, lineStyle: { width: 1, type: 'dashed', opacity: 0.8 } })
+        series.push({ name: 'P90 风险上界', type: 'line', smooth: true, data: upper, symbol: 'none', itemStyle: { color: '#ef4444' }, lineStyle: { width: 1, type: 'dashed', opacity: 0.8 } })
+      }
     }
 
     if (data.rollingPredictions && data.rollingPredictions.length > 0) {
@@ -1066,6 +1084,16 @@ const tacticalAdvice = computed(() => {
       cardClass: 'bg-slate-900 border-slate-800 text-slate-400',
       titleClass: 'text-slate-400 border-slate-800',
       textClass: 'text-slate-400'
+    }
+  }
+
+  if (!primaryForecast.value?.actionable) {
+    return {
+      title: '研究模式：当前不生成自动交易动作',
+      content: '模型尚未通过走样本外训练、概率校准和成本后影子交易门槛。请将 P10/P50/P90 视为风险情景，并等待成交、订单流和数据质量确认。',
+      cardClass: 'bg-amber-950/60 border-amber-500/50 text-amber-200',
+      titleClass: 'text-amber-300 border-amber-800',
+      textClass: 'text-amber-100'
     }
   }
 

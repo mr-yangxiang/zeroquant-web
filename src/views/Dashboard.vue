@@ -138,7 +138,7 @@
             </div>
           </div>
 
-          <div v-if="latestForecast && !isHistoryView" class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-2 text-[10px] font-mono">
+          <div v-if="latestForecast" class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-2 text-[10px] font-mono">
             <div class="bg-slate-950/80 border border-slate-700 rounded-lg p-2">
               <div class="text-slate-500">模型状态</div>
               <div :class="primaryForecast?.actionable ? 'text-emerald-400' : 'text-amber-400'">{{ latestForecast.modelState }}</div>
@@ -156,7 +156,7 @@
               <div class="text-slate-500">数据质量</div><div class="text-cyan-400 font-bold">{{ formatProbability(latestForecast.features?.qualityScore) }}</div>
             </div>
           </div>
-          <div v-if="latestForecast && !primaryForecast?.actionable && !isHistoryView" class="mb-2 bg-amber-950/40 border border-amber-500/40 text-amber-200 text-[11px] rounded-lg p-2">
+          <div v-if="latestForecast && !primaryForecast?.actionable" class="mb-2 bg-amber-950/40 border border-amber-500/40 text-amber-200 text-[11px] rounded-lg p-2">
             研究模式：模型尚未通过走样本外训练与概率校准，本页仅展示概率和风险区间，不生成自动交易指令。
           </div>
 
@@ -766,14 +766,10 @@ const loadAdvancedHistory = async (code: string) => {
     const queryDate = selectedDate.value || defaultDate
     const res: any = await api.get(`/stocks/${code}/advanced-history?date=${queryDate}`)
     advancedHistory.value = res.data || { realHistories: [], predictions: [], rollingPredictions: [] }
-    if (queryDate === defaultDate) {
-      try {
-        const forecastRes: any = await api.get(`/quant/stocks/${code}/latest-forecast`)
-        latestForecast.value = forecastRes.data || null
-      } catch (_) {
-        latestForecast.value = null
-      }
-    } else {
+    try {
+      const forecastRes: any = await api.get(`/quant/stocks/${code}/latest-forecast`)
+      latestForecast.value = forecastRes.data || null
+    } catch (_) {
       latestForecast.value = null
     }
     
@@ -826,39 +822,39 @@ const renderChart = () => {
 
   const series: any[] = []
 
-  // 仅在非历史过去日期（例如当前/下个交易日）时展示预测折线
-  if (!isHist) {
-    const basePrices = basePrediction ? basePrediction.timePoints.map((tp: any) => tp.price) : []
-    if (basePrices.length > 0) {
-      series.push({
-        name: '① 预测中位路径 P50',
-        type: 'line',
-        smooth: true,
-        data: basePrices,
-        itemStyle: { color: '#06b6d4' },
-        lineStyle: { width: 2.5, type: 'solid' },
-      })
-      const lower = basePrediction.timePoints.map((tp: any) => tp.lower ?? null)
-      const upper = basePrediction.timePoints.map((tp: any) => tp.upper ?? null)
-      if (lower.some((value: any) => value !== null)) {
-        series.push({ name: 'P10 风险下界', type: 'line', smooth: true, data: lower, symbol: 'none', itemStyle: { color: '#10b981' }, lineStyle: { width: 1, type: 'dashed', opacity: 0.8 } })
-        series.push({ name: 'P90 风险上界', type: 'line', smooth: true, data: upper, symbol: 'none', itemStyle: { color: '#ef4444' }, lineStyle: { width: 1, type: 'dashed', opacity: 0.8 } })
-      }
+  // 展示预测折线与置信区间
+  const basePrices = basePrediction ? basePrediction.timePoints.map((tp: any) => tp.price) : []
+  if (basePrices.length > 0) {
+    series.push({
+      name: '① 预测中位路径 P50',
+      type: 'line',
+      smooth: true,
+      data: basePrices,
+      itemStyle: { color: '#06b6d4' },
+      lineStyle: { width: 2.5, type: 'solid' },
+    })
+    const lower = basePrediction.timePoints.map((tp: any) => tp.lower ?? null)
+    const upper = basePrediction.timePoints.map((tp: any) => tp.upper ?? null)
+    if (lower.some((value: any) => value !== null)) {
+      series.push({ name: 'P10 风险下界', type: 'line', smooth: true, data: lower, symbol: 'none', itemStyle: { color: '#10b981' }, lineStyle: { width: 1, type: 'dashed', opacity: 0.8 } })
+      series.push({ name: 'P90 风险上界', type: 'line', smooth: true, data: upper, symbol: 'none', itemStyle: { color: '#ef4444' }, lineStyle: { width: 1, type: 'dashed', opacity: 0.8 } })
     }
+  }
 
-    if (data.rollingPredictions && data.rollingPredictions.length > 0) {
-      const rollingMap = new Map(data.rollingPredictions.map((r: any) => [r.targetTime, r.predictedPrice]))
-      const rollingDataArr = timeCategories.map((t: string) => rollingMap.get(t) || null)
-      series.push({
-        name: '② 盘中动态重塑全天趋势线 (黄虚线 - 实时重塑全天走向)',
-        type: 'line',
-        smooth: true,
-        data: rollingDataArr,
-        itemStyle: { color: '#f59e0b' },
-        lineStyle: { width: 1.5, type: 'dashed' },
-      })
-    }
+  if (data.rollingPredictions && data.rollingPredictions.length > 0) {
+    const rollingMap = new Map(data.rollingPredictions.map((r: any) => [r.targetTime, r.predictedPrice]))
+    const rollingDataArr = timeCategories.map((t: string) => rollingMap.get(t) || null)
+    series.push({
+      name: '② 盘中动态重塑全天趋势线 (黄虚线 - 实时重塑全天走向)',
+      type: 'line',
+      smooth: true,
+      data: rollingDataArr,
+      itemStyle: { color: '#f59e0b' },
+      lineStyle: { width: 1.5, type: 'dashed' },
+    })
+  }
 
+  if (data.predictions) {
     data.predictions.filter((p: any) => !p.isBase).forEach((p: any, idx: number) => {
       const vPrices = p.timePoints.map((tp: any) => tp.price)
       series.push({

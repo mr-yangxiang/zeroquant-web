@@ -956,7 +956,17 @@ const renderChart = () => {
       boundaryGap: false,
       data: timeCategories,
       axisLine: { lineStyle: { color: '#334155' } },
-      axisLabel: { color: '#64748b', fontSize: 9 },
+      axisLabel: {
+        color: '#64748b',
+        fontSize: 10,
+        interval: (_index: number, value: string) => {
+          return ['09:30', '10:00', '10:30', '11:00', '11:30', '13:30', '14:00', '14:30', '15:00'].includes(value)
+        },
+        formatter: (value: string) => {
+          if (value === '11:30') return '11:30/13:00'
+          return value
+        }
+      },
     },
     yAxis: {
       type: 'value',

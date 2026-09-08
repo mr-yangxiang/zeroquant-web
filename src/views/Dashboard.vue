@@ -165,6 +165,12 @@
 
           <!-- ECharts 容器 (移动端高度 220px / 桌面端 280px 响应式) -->
           <div ref="chartRef" class="w-full h-64 sm:h-72"></div>
+          <div v-if="advancedHistory.rollingEvaluation?.snapshotCount" class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[9px] text-slate-500 font-mono">
+            <span>动态预测已留档 {{ advancedHistory.rollingEvaluation.snapshotCount }} 次</span>
+            <span>累计保存 {{ advancedHistory.rollingEvaluation.storedPointCount }} 个预测点</span>
+            <span>提前{{ advancedHistory.rollingEvaluation.evaluationLeadMinutes }}分钟可比 {{ advancedHistory.rollingEvaluation.comparablePointCount }} 点</span>
+            <span v-if="advancedHistory.rollingEvaluation.meanAbsoluteDeviationPct !== null" class="text-amber-400">平均偏离 {{ Number(advancedHistory.rollingEvaluation.meanAbsoluteDeviationPct).toFixed(2) }}%</span>
+          </div>
         </div>
 
         <!-- 🎯 个人专属实盘持仓与争分夺秒买卖战术对策盘 -->
@@ -269,8 +275,9 @@
         </div>
       </div>
 
-        <!-- 右侧 1 列：用户可直接理解的走势与观察价位 -->
-        <div class="glass-card p-3 sm:p-4 border border-slate-800 flex flex-col justify-between space-y-3">
+        <!-- 右侧只跟随左侧两块的总高度，长名单在卡片内部滚动。 -->
+        <div class="relative min-h-0 lg:self-stretch">
+        <div class="glass-card p-3 sm:p-4 border border-slate-800 flex flex-col space-y-3 lg:absolute lg:inset-0 lg:overflow-hidden">
           <h3 class="text-xs sm:text-sm font-extrabold text-cyan-400 border-b border-slate-800 pb-2 flex items-center gap-1.5">
             <el-icon><Compass /></el-icon>
             <span>{{ selectedStock.name }} 今天怎么看：趋势与买卖点</span>
@@ -334,10 +341,15 @@
             </div>
           </div>
 
-          <div class="bg-slate-950/70 border border-slate-700 rounded-xl p-2.5 space-y-2 text-[11px]">
+          <div class="bg-slate-950/70 border border-slate-700 rounded-xl p-2.5 flex flex-col gap-2 text-[11px] min-h-0 lg:flex-1 lg:overflow-hidden">
             <div class="flex items-center justify-between gap-2">
               <div class="font-bold text-cyan-300 flex items-center gap-1"><el-icon><User /></el-icon>公开持股主力（报告期）</div>
-              <a v-if="ownershipProfile?.sourceUrl" :href="ownershipProfile.sourceUrl" target="_blank" rel="noopener noreferrer" class="text-[9px] text-cyan-500 hover:text-cyan-300">查看公开来源</a>
+              <div class="flex items-center gap-2 shrink-0">
+                <button @click="refreshOwnershipProfile" :disabled="ownershipLoading" class="text-[9px] text-slate-400 hover:text-cyan-300 disabled:opacity-50 flex items-center gap-0.5" title="股东披露不会随行情自动刷新；需要时可手动更新">
+                  <el-icon><Refresh /></el-icon><span>手动更新</span>
+                </button>
+                <a v-if="ownershipProfile?.sourceUrl" :href="ownershipProfile.sourceUrl" target="_blank" rel="noopener noreferrer" class="text-[9px] text-cyan-500 hover:text-cyan-300">公开来源</a>
+              </div>
             </div>
             <div v-if="ownershipProfile?.reportDate" class="text-[9px] text-slate-500">
               {{ ownershipProfile.reportName || '定期报告' }} · 报告期 {{ ownershipProfile.reportDate }} · 公告日 {{ ownershipProfile.noticeDate || '--' }}
@@ -347,7 +359,7 @@
               <div class="bg-cyan-950/30 border border-cyan-900/50 rounded-lg p-1.5"><span class="text-slate-500">前三 / 前十大</span><span class="float-right text-cyan-300 font-mono">{{ Number(ownershipProfile.summary.topThreeRatioPct ?? 0).toFixed(2) }}% / {{ ownershipProfile.summary.disclosedTopHolderRatioPct.toFixed(2) }}%</span></div>
               <div class="bg-slate-900 border border-slate-800 rounded-lg p-1.5"><span class="text-slate-500">本期变化</span><span class="float-right text-slate-300">增 {{ ownershipProfile.summary.increasedCount }} / 减 {{ ownershipProfile.summary.decreasedCount }}</span></div>
             </div>
-            <div v-if="!ownershipLoading && ownershipProfile?.topHolders?.length" class="space-y-1.5 max-h-[30rem] overflow-y-auto no-scrollbar">
+            <div v-if="!ownershipLoading && ownershipProfile?.topHolders?.length" class="space-y-1.5 max-h-80 lg:max-h-none lg:flex-1 min-h-0 overflow-y-auto no-scrollbar pr-0.5">
               <div v-for="holder in ownershipProfile.topHolders.slice(0, 10)" :key="`${holder.rank}-${holder.name}`" class="bg-slate-900/80 border border-slate-800 rounded-lg p-2">
                 <div class="flex items-start justify-between gap-2">
                   <span class="text-slate-200 font-bold leading-snug">{{ holder.rank }}. {{ holder.name }}</span>
@@ -365,6 +377,7 @@
             <div v-for="warning in ownershipProfile?.warnings || []" :key="warning" class="text-[9px] text-amber-500/80">{{ warning }}</div>
             <div class="text-[9px] text-slate-600">“公开画像”只根据账户性质与公告持仓变化归纳；没有账户级成交证据时，系统不会编造拉升、洗盘或砸盘习惯。</div>
           </div>
+        </div>
         </div>
       </div>
 
@@ -609,6 +622,8 @@ const advancedHistory = ref<any>({
 const latestForecast = ref<any>(null)
 const ownershipProfile = ref<any>(null)
 const ownershipLoading = ref(false)
+const ownershipContextKey = ref('')
+const ownershipCache = new Map<string, any>()
 
 const chartRef = ref<HTMLElement | null>(null)
 let chartInstance: echarts.ECharts | null = null
@@ -728,7 +743,11 @@ const l2Orders = computed(() => {
 const fetchStockList = async () => {
   try {
     const res: any = await api.get('/stocks')
-    stockList.value = res.data
+    stockList.value = res.data || []
+    if (selectedStock.value) {
+      const refreshed = stockList.value.find((stock: any) => stock.code === selectedStock.value.code)
+      if (refreshed) selectedStock.value = { ...selectedStock.value, ...refreshed }
+    }
     if (!selectedStock.value && stockList.value.length > 0) {
       selectStock(stockList.value[0])
     }
@@ -739,7 +758,11 @@ const fetchStockList = async () => {
 
 const selectStock = async (stock: any) => {
   selectedStock.value = stock
-  await loadAdvancedHistory(stock.code)
+  const queryDate = selectedDate.value || defaultDate
+  await Promise.all([
+    loadAdvancedHistory(stock.code),
+    loadOwnershipProfile(stock.code, queryDate),
+  ])
 }
 
 const handleDateChange = (val: string | null) => {
@@ -748,7 +771,37 @@ const handleDateChange = (val: string | null) => {
   }
   if (selectedStock.value) {
     loadAdvancedHistory(selectedStock.value.code)
+    loadOwnershipProfile(selectedStock.value.code, selectedDate.value || defaultDate)
   }
+}
+
+const loadOwnershipProfile = async (code: string, queryDate: string, force = false) => {
+  const contextKey = `${code}|${queryDate}`
+  if (!force && ownershipContextKey.value === contextKey) return
+  if (!force && ownershipCache.has(contextKey)) {
+    ownershipContextKey.value = contextKey
+    ownershipProfile.value = ownershipCache.get(contextKey)
+    return
+  }
+
+  ownershipContextKey.value = contextKey
+  if (!force) ownershipProfile.value = null
+  ownershipLoading.value = true
+  try {
+    const res: any = await api.get(`/stocks/${code}/ownership-profile?asOf=${queryDate}`)
+    const profile = res.data || null
+    ownershipCache.set(contextKey, profile)
+    if (ownershipContextKey.value === contextKey) ownershipProfile.value = profile
+  } catch (_) {
+    if (ownershipContextKey.value === contextKey) ownershipProfile.value = null
+  } finally {
+    if (ownershipContextKey.value === contextKey) ownershipLoading.value = false
+  }
+}
+
+const refreshOwnershipProfile = async () => {
+  if (!selectedStock.value) return
+  await loadOwnershipProfile(selectedStock.value.code, selectedDate.value || defaultDate, true)
 }
 
 const loadAdvancedHistory = async (code: string) => {
@@ -756,10 +809,8 @@ const loadAdvancedHistory = async (code: string) => {
     const queryDate = selectedDate.value || defaultDate
     const res: any = await api.get(`/stocks/${code}/advanced-history?date=${queryDate}`)
     advancedHistory.value = res.data || { realHistories: [], predictions: [], rollingPredictions: [] }
-    ownershipLoading.value = true
-    const [forecastResult, ownershipResult] = await Promise.allSettled([
-        api.get(`/quant/stocks/${code}/latest-forecast?asOf=${queryDate}`),
-        api.get(`/stocks/${code}/ownership-profile?asOf=${queryDate}`),
+    const [forecastResult] = await Promise.allSettled([
+      api.get(`/quant/stocks/${code}/latest-forecast?asOf=${queryDate}`),
     ])
     if (forecastResult.status === 'fulfilled') {
       const forecastRes: any = forecastResult.value
@@ -767,14 +818,6 @@ const loadAdvancedHistory = async (code: string) => {
     } else {
       latestForecast.value = null
     }
-    if (ownershipResult.status === 'fulfilled') {
-      const ownershipRes: any = ownershipResult.value
-      ownershipProfile.value = ownershipRes.data || null
-    } else {
-      ownershipProfile.value = null
-    }
-    ownershipLoading.value = false
-    
     // 加载个人持仓与实盘动作
     if (res.data.position) {
       userHoldingShares.value = res.data.position.holdingShares || 0
@@ -847,7 +890,7 @@ const renderChart = () => {
     const rollingMap = new Map(data.rollingPredictions.map((r: any) => [r.targetTime, r.predictedPrice]))
     const rollingDataArr = timeCategories.map((t: string) => rollingMap.get(t) || null)
     series.push({
-      name: '② 盘中动态重塑全天趋势线 (黄虚线 - 实时重塑全天走向)',
+      name: '② 盘中动态预测（历史留档＋未来最新）',
       type: 'line',
       smooth: true,
       data: rollingDataArr,
@@ -1418,19 +1461,20 @@ const handleLogout = () => {
   router.replace('/login')
 }
 
-const countdown = ref(10)
+const AUTO_REFRESH_SECONDS = 60
+const countdown = ref(AUTO_REFRESH_SECONDS)
 
 onMounted(() => {
   fetchStockList()
   timer = setInterval(() => {
     if (!shouldAutoRefresh.value) {
-      countdown.value = 10
+      countdown.value = AUTO_REFRESH_SECONDS
       return // 不开盘/看历史数据时直接跳过，零刷新消耗！
     }
 
     countdown.value--
     if (countdown.value <= 0) {
-      countdown.value = 10
+      countdown.value = AUTO_REFRESH_SECONDS
       fetchStockList()
       if (selectedStock.value) {
         loadAdvancedHistory(selectedStock.value.code)

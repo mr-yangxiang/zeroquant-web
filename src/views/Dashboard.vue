@@ -6,7 +6,10 @@
         <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20 shrink-0">
           <el-icon class="text-lg"><DataAnalysis /></el-icon>
         </div>
-        <h1 class="text-sm font-black tracking-wide bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent shrink-0">ZeroQuant 智脑做 T 大盘</h1>
+        <div class="shrink-0">
+          <h1 class="text-sm font-black tracking-wide bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">ZeroQuant 智脑做 T 大盘</h1>
+          <div class="text-[8px] text-slate-500 font-mono mt-0.5">界面版本 {{ uiRelease }}</div>
+        </div>
 
         <!-- 标的抽拉折叠开关组件 (移动端定位防溢出) -->
         <div class="relative shrink-0">
@@ -102,7 +105,7 @@
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
             <div>
               <h2 class="text-xs sm:text-sm font-extrabold text-white flex flex-wrap items-center gap-1.5">
-                <span>{{ selectedStock.name }} ({{ selectedStock.code }}) 多维折线重叠对比</span>
+                <span>{{ selectedStock.name }} ({{ selectedStock.code }}) 全天走势对比</span>
                 <span class="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 border border-cyan-800/60 px-2 py-0.5 rounded-full">
                   {{ selectedDate }}
                 </span>
@@ -111,18 +114,18 @@
                 <span v-if="!isHistoryView && basePrediction"
                   class="text-[10px] font-mono font-black px-2 py-0.5 rounded-full border shadow-sm flex items-center gap-1"
                   :class="String(basePrediction.direction || '').includes('多') || String(basePrediction.direction || '').includes('涨') ? 'bg-red-950/90 border-red-500/80 text-red-400' : 'bg-emerald-950/90 border-emerald-500/80 text-emerald-400'">
-                  <span>09:20 概率基线:</span>
+                  <span>盘前判断:</span>
                   <span>{{ basePrediction.direction || '方向待确认' }} {{ formatSignedPercent(basePrediction.targetPct) }}</span>
                 </span>
 
                 <!-- 重新模拟新版本预测 Badge (值二, 值三...) -->
                 <span v-if="!isHistoryView" v-for="p in versionPredictions" :key="p.version"
                   class="text-[10px] font-mono font-black px-2 py-0.5 rounded-full border bg-purple-950/90 border-purple-500/80 text-purple-300">
-                  <span>值{{ p.version }}:</span>
+                  <span>第{{ p.version }}次盘中修正:</span>
                   <span>{{ p.direction || '方向待确认' }} {{ formatSignedPercent(p.targetPct) }}</span>
                 </span>
               </h2>
-              <p class="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 leading-snug">蓝线是当前最可能的走势，绿虚线是偏弱情景，红虚线是偏强情景；它们是范围，不是保证成交价。</p>
+              <p class="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 leading-snug">先看蓝线判断大概方向；绿、红虚线只表示可能波动范围。真正买卖以前，还要等止跌或滞涨信号确认。</p>
             </div>
             
             <div class="flex items-center gap-2 self-end sm:self-auto">
@@ -138,26 +141,26 @@
             </div>
           </div>
 
-          <div v-if="latestForecast" class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-2 text-[10px] font-mono">
+          <div v-if="latestForecast && decisionGuide" class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-2 text-[10px] font-mono">
+            <div class="bg-slate-950/80 border border-cyan-700/60 rounded-lg p-2">
+              <div class="text-slate-500">现在怎么看</div>
+              <div class="text-cyan-300 font-bold">{{ decisionGuide.trend }}</div>
+            </div>
+            <div class="bg-slate-950/80 border border-emerald-900/60 rounded-lg p-2">
+              <div class="text-slate-500">计划买入参考</div><div class="text-emerald-300 font-bold">¥{{ decisionGuide.buyLow.toFixed(2) }}～{{ decisionGuide.buyHigh.toFixed(2) }}</div>
+            </div>
+            <div class="bg-slate-950/80 border border-red-900/60 rounded-lg p-2">
+              <div class="text-slate-500">计划卖出参考</div><div class="text-red-300 font-bold">¥{{ decisionGuide.sellLow.toFixed(2) }}～{{ decisionGuide.sellHigh.toFixed(2) }}</div>
+            </div>
             <div class="bg-slate-950/80 border border-slate-700 rounded-lg p-2">
-              <div class="text-slate-500">预测可信状态</div>
-              <div :class="primaryForecast?.actionable ? 'text-emerald-400' : 'text-amber-400'">{{ modelStateLabel }}</div>
+              <div class="text-slate-500">预计波动范围</div><div class="text-slate-200 font-bold">¥{{ decisionGuide.low.toFixed(2) }}～{{ decisionGuide.high.toFixed(2) }}</div>
             </div>
-            <div class="bg-slate-950/80 border border-red-900/50 rounded-lg p-2">
-              <div class="text-slate-500">未来{{ primaryForecast?.horizonMinutes || '--' }}分钟上涨</div><div class="text-red-400 font-bold">{{ formatProbability(primaryForecast?.pUp) }}</div>
-            </div>
-            <div class="bg-slate-950/80 border border-slate-700 rounded-lg p-2">
-              <div class="text-slate-500">未来{{ primaryForecast?.horizonMinutes || '--' }}分钟震荡</div><div class="text-slate-200 font-bold">{{ formatProbability(primaryForecast?.pFlat) }}</div>
-            </div>
-            <div class="bg-slate-950/80 border border-emerald-900/50 rounded-lg p-2">
-              <div class="text-slate-500">未来{{ primaryForecast?.horizonMinutes || '--' }}分钟下跌</div><div class="text-emerald-400 font-bold">{{ formatProbability(primaryForecast?.pDown) }}</div>
-            </div>
-            <div class="bg-slate-950/80 border border-cyan-900/50 rounded-lg p-2">
-              <div class="text-slate-500">数据质量</div><div class="text-cyan-400 font-bold">{{ formatProbability(latestForecast.features?.qualityScore) }}</div>
+            <div class="bg-slate-950/80 border border-amber-900/50 rounded-lg p-2">
+              <div class="text-slate-500">现在能否用于交易</div><div :class="decisionGuide.actionable ? 'text-emerald-400' : 'text-amber-300'">{{ decisionGuide.actionable ? '通过门槛，可继续核对' : '不能，只能观察' }}</div>
             </div>
           </div>
           <div v-if="latestForecast && !primaryForecast?.actionable" class="mb-2 bg-amber-950/40 border border-amber-500/40 text-amber-200 text-[11px] rounded-lg p-2">
-            {{ modelStateExplanation }} 页面仍给出低吸/高抛观察区方便理解，但在模型通过验证前只能用于观察，不能视为自动交易指令。
+            <span class="font-bold">{{ modelStateLabel }}：</span>{{ modelStateExplanation }} 页面仍给出低吸/高抛观察区方便理解，但在模型通过验证前只能用于观察，不能视为自动交易指令。
           </div>
 
           <!-- ECharts 容器 (移动端高度 220px / 桌面端 280px 响应式) -->
@@ -209,8 +212,8 @@
               <div class="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
                 <span class="text-[10px] text-slate-400">动作:</span>
                 <select v-model="tradeActionType" class="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer">
-                  <option value="BUY" class="bg-slate-900 text-red-400">🔴 我刚刚挂单买入 (BUY)</option>
-                  <option value="SELL" class="bg-slate-900 text-emerald-400">🟢 我刚刚挂单卖出 (SELL)</option>
+                  <option value="BUY" class="bg-slate-900 text-red-400">🔴 我刚刚挂单买入</option>
+                  <option value="SELL" class="bg-slate-900 text-emerald-400">🟢 我刚刚挂单卖出</option>
                 </select>
               </div>
 
@@ -270,7 +273,7 @@
         <div class="glass-card p-3 sm:p-4 border border-slate-800 flex flex-col justify-between space-y-3">
           <h3 class="text-xs sm:text-sm font-extrabold text-cyan-400 border-b border-slate-800 pb-2 flex items-center gap-1.5">
             <el-icon><Compass /></el-icon>
-            <span>{{ selectedStock.name }} 走势与买卖观察</span>
+            <span>{{ selectedStock.name }} 今天怎么看：趋势与买卖点</span>
           </h3>
 
           <div v-if="decisionGuide" class="grid grid-cols-2 gap-2 font-mono text-xs">
@@ -333,31 +336,34 @@
 
           <div class="bg-slate-950/70 border border-slate-700 rounded-xl p-2.5 space-y-2 text-[11px]">
             <div class="flex items-center justify-between gap-2">
-              <div class="font-bold text-cyan-300 flex items-center gap-1"><el-icon><User /></el-icon>主要公开股东</div>
+              <div class="font-bold text-cyan-300 flex items-center gap-1"><el-icon><User /></el-icon>公开持股主力（报告期）</div>
               <a v-if="ownershipProfile?.sourceUrl" :href="ownershipProfile.sourceUrl" target="_blank" rel="noopener noreferrer" class="text-[9px] text-cyan-500 hover:text-cyan-300">查看公开来源</a>
             </div>
             <div v-if="ownershipProfile?.reportDate" class="text-[9px] text-slate-500">
               {{ ownershipProfile.reportName || '定期报告' }} · 报告期 {{ ownershipProfile.reportDate }} · 公告日 {{ ownershipProfile.noticeDate || '--' }}
             </div>
             <div v-if="ownershipLoading" class="text-center text-slate-500 py-3">正在读取公开披露…</div>
-            <div v-else-if="ownershipProfile?.topHolders?.length" class="space-y-1.5 max-h-80 overflow-y-auto no-scrollbar">
-              <div v-for="holder in ownershipProfile.topHolders.slice(0, 5)" :key="`${holder.rank}-${holder.name}`" class="bg-slate-900/80 border border-slate-800 rounded-lg p-2">
+            <div v-if="ownershipProfile?.summary && ownershipProfile?.topHolders?.length" class="grid grid-cols-2 gap-1.5 text-[9px]">
+              <div class="bg-cyan-950/30 border border-cyan-900/50 rounded-lg p-1.5"><span class="text-slate-500">前三 / 前十大</span><span class="float-right text-cyan-300 font-mono">{{ Number(ownershipProfile.summary.topThreeRatioPct ?? 0).toFixed(2) }}% / {{ ownershipProfile.summary.disclosedTopHolderRatioPct.toFixed(2) }}%</span></div>
+              <div class="bg-slate-900 border border-slate-800 rounded-lg p-1.5"><span class="text-slate-500">本期变化</span><span class="float-right text-slate-300">增 {{ ownershipProfile.summary.increasedCount }} / 减 {{ ownershipProfile.summary.decreasedCount }}</span></div>
+            </div>
+            <div v-if="!ownershipLoading && ownershipProfile?.topHolders?.length" class="space-y-1.5 max-h-[30rem] overflow-y-auto no-scrollbar">
+              <div v-for="holder in ownershipProfile.topHolders.slice(0, 10)" :key="`${holder.rank}-${holder.name}`" class="bg-slate-900/80 border border-slate-800 rounded-lg p-2">
                 <div class="flex items-start justify-between gap-2">
                   <span class="text-slate-200 font-bold leading-snug">{{ holder.rank }}. {{ holder.name }}</span>
                   <span class="shrink-0 font-mono text-cyan-300">{{ holder.ratioPct.toFixed(2) }}%</span>
                 </div>
                 <div class="mt-1 flex flex-wrap gap-x-2 text-[9px] text-slate-500">
-                  <span>{{ formatShares(holder.shares) }}</span><span>{{ holder.holderNature }}</span><span>{{ holder.shareType }}</span>
+                  <span>{{ formatShares(holder.shares) }}</span><span v-if="holder.profileLabel" class="text-cyan-500">{{ holder.profileLabel }}</span><span>{{ holder.holderNature }}</span><span>{{ holder.shareType }}</span>
                   <span :class="holderDirectionClass(holder.direction)">{{ holder.direction }}<template v-if="holder.changeShares !== null"> {{ formatShares(Math.abs(holder.changeShares)) }}</template></span>
                 </div>
-                <div class="mt-1 text-[9px] leading-snug text-slate-400">行为观察：{{ holder.behaviorObservation }}</div>
+                <div class="mt-1 text-[9px] leading-snug text-slate-400"><span class="text-cyan-500">公开画像：</span>{{ holder.behaviorObservation }}</div>
               </div>
             </div>
-            <div v-else class="text-center text-slate-500 py-3">截至所选日期暂无可用股东披露。</div>
-            <div v-if="ownershipProfile?.summary" class="text-[9px] text-slate-500 border-t border-slate-800 pt-1.5">
-              前十大披露持股合计 {{ ownershipProfile.summary.disclosedTopHolderRatioPct.toFixed(2) }}%；增持 {{ ownershipProfile.summary.increasedCount }}、减持 {{ ownershipProfile.summary.decreasedCount }}、新进 {{ ownershipProfile.summary.newCount }}、不变 {{ ownershipProfile.summary.unchangedCount }}。
-            </div>
-            <div class="text-[9px] text-amber-500/80">股东数据有报告期滞后，只能说明公开持仓变化，不能证明谁在当前分钟操盘。</div>
+            <div v-if="!ownershipLoading && !ownershipProfile?.topHolders?.length" class="text-center text-slate-500 py-3">截至所选日期暂无可用股东披露。</div>
+            <div v-if="ownershipProfile?.dataNature" class="text-[9px] text-slate-500 border-t border-slate-800 pt-1.5">{{ ownershipProfile.dataNature }}</div>
+            <div v-for="warning in ownershipProfile?.warnings || []" :key="warning" class="text-[9px] text-amber-500/80">{{ warning }}</div>
+            <div class="text-[9px] text-slate-600">“公开画像”只根据账户性质与公告持仓变化归纳；没有账户级成交证据时，系统不会编造拉升、洗盘或砸盘习惯。</div>
           </div>
         </div>
       </div>
@@ -471,7 +477,8 @@
             </span>
           </div>
           <div class="text-[11px] text-slate-400 font-mono">
-            预判做T区间: <span class="text-emerald-400">¥{{ selectedStock.predictedLow.toFixed(2) }}</span> ~ <span class="text-red-400">¥{{ selectedStock.predictedHigh.toFixed(2) }}</span>
+            <template v-if="decisionGuide">当前观察区: <span class="text-emerald-400">买 ¥{{ decisionGuide.buyLow.toFixed(2) }}～{{ decisionGuide.buyHigh.toFixed(2) }}</span> / <span class="text-red-400">卖 ¥{{ decisionGuide.sellLow.toFixed(2) }}～{{ decisionGuide.sellHigh.toFixed(2) }}</span></template>
+            <template v-else>当前暂无可用预测</template>
           </div>
         </div>
 
@@ -586,6 +593,7 @@ dayjs.extend(utc)
 dayjs.extend(timezone)
 
 const router = useRouter()
+const uiRelease = '2026.09.08-易读版'
 const stockList = ref<any[]>([])
 const selectedStock = ref<any>(null)
 const isDrawerOpen = ref(false)
@@ -625,7 +633,7 @@ const primaryForecast = computed(() => {
 })
 
 const modelStateLabel = computed(() => latestForecast.value?.modelStateLabel || ({
-  untrained_bootstrap: '基础试运行模型（尚未训练）',
+  untrained_bootstrap: '尚未完成训练，仅供观察',
   shadow: '影子验证中',
   champion: '已通过生产门槛',
 } as Record<string, string>)[latestForecast.value?.modelState] || '状态待确认')
@@ -1098,8 +1106,8 @@ const tacticalAdvice = computed(() => {
   }
 
   const currP = selectedStock.value.currentPrice
-  const pHigh = selectedStock.value.predictedHigh
-  const pLow = selectedStock.value.predictedLow
+  const pHigh = decisionGuide.value?.sellHigh ?? selectedStock.value.currentPrice
+  const pLow = decisionGuide.value?.buyLow ?? selectedStock.value.currentPrice
   const costP = userCostPrice.value || 0
   const shares = userHoldingShares.value || 0
   const lastTrade = userTradesList.value.length > 0 ? userTradesList.value[0] : null

@@ -343,9 +343,9 @@
 
           <div class="bg-slate-950/70 border border-slate-700 rounded-xl p-2.5 flex flex-col gap-2 text-[11px] min-h-0 lg:flex-1 lg:overflow-hidden">
             <div class="flex items-center justify-between gap-2">
-              <div class="font-bold text-cyan-300 flex items-center gap-1"><el-icon><User /></el-icon>公开持股主力（报告期）</div>
+              <div class="font-bold text-cyan-300 flex items-center gap-1"><el-icon><User /></el-icon>主力结构与历史行为</div>
               <div class="flex items-center gap-2 shrink-0">
-                <button @click="refreshOwnershipProfile" :disabled="ownershipLoading" class="text-[9px] text-slate-400 hover:text-cyan-300 disabled:opacity-50 flex items-center gap-0.5" title="股东披露不会随行情自动刷新；需要时可手动更新">
+                <button @click="refreshParticipantPanels" :disabled="ownershipLoading || entityProfileLoading" class="text-[9px] text-slate-400 hover:text-cyan-300 disabled:opacity-50 flex items-center gap-0.5" title="股东披露和历史画像不会随分钟行情刷新；需要时可手动更新">
                   <el-icon><Refresh /></el-icon><span>手动更新</span>
                 </button>
                 <a v-if="ownershipProfile?.sourceUrl" :href="ownershipProfile.sourceUrl" target="_blank" rel="noopener noreferrer" class="text-[9px] text-cyan-500 hover:text-cyan-300">公开来源</a>
@@ -354,13 +354,14 @@
             <div v-if="ownershipProfile?.reportDate" class="text-[9px] text-slate-500">
               {{ ownershipProfile.reportName || '定期报告' }} · 报告期 {{ ownershipProfile.reportDate }} · 公告日 {{ ownershipProfile.noticeDate || '--' }}
             </div>
-            <div v-if="ownershipLoading" class="text-center text-slate-500 py-3">正在读取公开披露…</div>
+            <div v-if="ownershipLoading || entityProfileLoading" class="text-center text-slate-500 py-3">正在读取公开披露与历史证据…</div>
             <div v-if="ownershipProfile?.summary && ownershipProfile?.topHolders?.length" class="grid grid-cols-2 gap-1.5 text-[9px]">
               <div class="bg-cyan-950/30 border border-cyan-900/50 rounded-lg p-1.5"><span class="text-slate-500">前三 / 前十大</span><span class="float-right text-cyan-300 font-mono">{{ Number(ownershipProfile.summary.topThreeRatioPct ?? 0).toFixed(2) }}% / {{ ownershipProfile.summary.disclosedTopHolderRatioPct.toFixed(2) }}%</span></div>
               <div class="bg-slate-900 border border-slate-800 rounded-lg p-1.5"><span class="text-slate-500">本期变化</span><span class="float-right text-slate-300">增 {{ ownershipProfile.summary.increasedCount }} / 减 {{ ownershipProfile.summary.decreasedCount }}</span></div>
             </div>
-            <div v-if="!ownershipLoading && ownershipProfile?.topHolders?.length" class="space-y-1.5 max-h-80 lg:max-h-none lg:flex-1 min-h-0 overflow-y-auto no-scrollbar pr-0.5">
-              <div v-for="holder in ownershipProfile.topHolders.slice(0, 10)" :key="`${holder.rank}-${holder.name}`" class="bg-slate-900/80 border border-slate-800 rounded-lg p-2">
+            <div v-if="!ownershipLoading && !entityProfileLoading" class="space-y-2 max-h-80 lg:max-h-none lg:flex-1 min-h-0 overflow-y-auto no-scrollbar pr-0.5">
+              <div class="text-[10px] font-bold text-slate-300">公开持股主力（报告期）</div>
+              <div v-for="holder in ownershipProfile?.topHolders?.slice(0, 10) || []" :key="`${holder.rank}-${holder.name}`" class="bg-slate-900/80 border border-slate-800 rounded-lg p-2">
                 <div class="flex items-start justify-between gap-2">
                   <span class="text-slate-200 font-bold leading-snug">{{ holder.rank }}. {{ holder.name }}</span>
                   <span class="shrink-0 font-mono text-cyan-300">{{ holder.ratioPct.toFixed(2) }}%</span>
@@ -369,13 +370,41 @@
                   <span>{{ formatShares(holder.shares) }}</span><span v-if="holder.profileLabel" class="text-cyan-500">{{ holder.profileLabel }}</span><span>{{ holder.holderNature }}</span><span>{{ holder.shareType }}</span>
                   <span :class="holderDirectionClass(holder.direction)">{{ holder.direction }}<template v-if="holder.changeShares !== null"> {{ formatShares(Math.abs(holder.changeShares)) }}</template></span>
                 </div>
-                <div class="mt-1 text-[9px] leading-snug text-slate-400"><span class="text-cyan-500">公开画像：</span>{{ holder.behaviorObservation }}</div>
+                <div class="mt-1 text-[9px] leading-snug text-slate-400"><span class="text-cyan-500">持股身份说明：</span>{{ holder.behaviorObservation }}</div>
+              </div>
+              <div v-if="!ownershipProfile?.topHolders?.length" class="text-center text-slate-500 py-2">截至所选日期暂无可用股东披露。</div>
+
+              <div class="border-t border-slate-800 pt-2 flex items-center justify-between gap-2">
+                <span class="text-[10px] font-bold text-purple-300">机构 / 活跃席位历史行为画像</span>
+                <span class="text-[9px] text-slate-500">{{ entityProfileSignalText }}</span>
+              </div>
+              <div v-for="profile in entityProfileData?.profiles || []" :key="`${profile.name}-${profile.lastEventDate}`" class="bg-purple-950/15 border border-purple-900/40 rounded-lg p-2">
+                <div class="flex items-start justify-between gap-2">
+                  <span class="text-slate-200 font-bold leading-snug">{{ profile.name }}</span>
+                  <span class="shrink-0 text-[9px] text-purple-300">{{ profile.entityType }}</span>
+                </div>
+                <div class="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[9px] text-slate-500">
+                  <span>公开记录 {{ profile.sampleCount }} 次</span>
+                  <span>可评估 {{ profile.labeledSampleCount }} 次</span>
+                  <span>可信度 {{ formatProbability(profile.confidence) }}</span>
+                  <span>证据等级 {{ profile.evidenceGrade }}</span>
+                  <span>{{ profile.status === 'RESEARCH_READY' ? '已达到研究门槛' : '样本不足' }}</span>
+                </div>
+                <div v-if="profile.traits?.length" class="mt-1.5 flex flex-wrap gap-1">
+                  <span v-for="trait in profile.traits" :key="trait.code" class="px-1.5 py-0.5 rounded bg-purple-500/10 border border-purple-500/20 text-[9px] text-purple-200" :title="trait.evidence">{{ trait.label }}</span>
+                </div>
+                <div v-if="profile.traits?.length" class="mt-1 text-[9px] leading-snug text-purple-200/60">依据：{{ profile.traits.map((trait: any) => trait.evidence).join('；') }}</div>
+                <div class="mt-1 text-[9px] leading-snug text-slate-400">{{ profile.evidenceSummary?.summary }}</div>
+                <div class="mt-1 text-[9px] text-slate-600">最近公开出现 {{ profile.lastEventDate }} · {{ profile.lastSide === 'BUY' ? '买方榜' : '卖方榜' }} · 本股累计 {{ profile.stockAppearanceCount }} 次</div>
+              </div>
+              <div v-if="!entityProfileData?.profiles?.length" class="rounded-lg border border-dashed border-slate-700 p-2 text-[9px] leading-relaxed text-slate-500">
+                暂无可验证的机构或活跃营业部席位画像。系统不会拿前十大股东名称冒充盘中交易席位，也不会在证据不足时编造操盘风格。
               </div>
             </div>
-            <div v-if="!ownershipLoading && !ownershipProfile?.topHolders?.length" class="text-center text-slate-500 py-3">截至所选日期暂无可用股东披露。</div>
             <div v-if="ownershipProfile?.dataNature" class="text-[9px] text-slate-500 border-t border-slate-800 pt-1.5">{{ ownershipProfile.dataNature }}</div>
             <div v-for="warning in ownershipProfile?.warnings || []" :key="warning" class="text-[9px] text-amber-500/80">{{ warning }}</div>
-            <div class="text-[9px] text-slate-600">“公开画像”只根据账户性质与公告持仓变化归纳；没有账户级成交证据时，系统不会编造拉升、洗盘或砸盘习惯。</div>
+            <div v-for="warning in entityProfileData?.warnings || []" :key="warning" class="text-[9px] text-amber-500/80">{{ warning }}</div>
+            <div class="text-[9px] text-slate-600">画像只使用当时已公开的席位记录、后续表现和新闻邻近度滚动计算；样本不足时只展示事实，不贴风格标签。</div>
           </div>
         </div>
         </div>
@@ -624,6 +653,10 @@ const ownershipProfile = ref<any>(null)
 const ownershipLoading = ref(false)
 const ownershipContextKey = ref('')
 const ownershipCache = new Map<string, any>()
+const entityProfileData = ref<any>(null)
+const entityProfileLoading = ref(false)
+const entityProfileContextKey = ref('')
+const entityProfileCache = new Map<string, any>()
 
 const chartRef = ref<HTMLElement | null>(null)
 let chartInstance: echarts.ECharts | null = null
@@ -731,6 +764,14 @@ const holderDirectionClass = (direction: string) => {
   return 'text-slate-400'
 }
 
+const entityProfileSignalText = computed(() => {
+  const profile = entityProfileData.value
+  if (!profile?.researchReadyEntityCount) return '暂无足够样本'
+  const signal = Number(profile.signal || 0)
+  const direction = signal >= 0.15 ? '历史证据偏多' : signal <= -0.15 ? '历史证据偏空' : '历史证据中性'
+  return `${direction} · ${profile.researchReadyEntityCount}/${profile.sampleEntityCount} 个达到门槛`
+})
+
 const isLimitLocked = computed(() => {
   if (!selectedStock.value) return false
   return Math.abs(selectedStock.value.pct) >= 9.9
@@ -762,6 +803,7 @@ const selectStock = async (stock: any) => {
   await Promise.all([
     loadAdvancedHistory(stock.code),
     loadOwnershipProfile(stock.code, queryDate),
+    loadEntityProfiles(stock.code, queryDate),
   ])
 }
 
@@ -772,6 +814,7 @@ const handleDateChange = (val: string | null) => {
   if (selectedStock.value) {
     loadAdvancedHistory(selectedStock.value.code)
     loadOwnershipProfile(selectedStock.value.code, selectedDate.value || defaultDate)
+    loadEntityProfiles(selectedStock.value.code, selectedDate.value || defaultDate)
   }
 }
 
@@ -799,9 +842,36 @@ const loadOwnershipProfile = async (code: string, queryDate: string, force = fal
   }
 }
 
-const refreshOwnershipProfile = async () => {
+const loadEntityProfiles = async (code: string, queryDate: string, force = false) => {
+  const contextKey = `${code}|${queryDate}`
+  if (!force && entityProfileContextKey.value === contextKey) return
+  if (!force && entityProfileCache.has(contextKey)) {
+    entityProfileContextKey.value = contextKey
+    entityProfileData.value = entityProfileCache.get(contextKey)
+    return
+  }
+  entityProfileContextKey.value = contextKey
+  if (!force) entityProfileData.value = null
+  entityProfileLoading.value = true
+  try {
+    const res: any = await api.get(`/quant/stocks/${code}/entity-profiles?asOf=${queryDate}`)
+    const data = res.data || null
+    entityProfileCache.set(contextKey, data)
+    if (entityProfileContextKey.value === contextKey) entityProfileData.value = data
+  } catch (_) {
+    if (entityProfileContextKey.value === contextKey) entityProfileData.value = null
+  } finally {
+    if (entityProfileContextKey.value === contextKey) entityProfileLoading.value = false
+  }
+}
+
+const refreshParticipantPanels = async () => {
   if (!selectedStock.value) return
-  await loadOwnershipProfile(selectedStock.value.code, selectedDate.value || defaultDate, true)
+  const queryDate = selectedDate.value || defaultDate
+  await Promise.all([
+    loadOwnershipProfile(selectedStock.value.code, queryDate, true),
+    loadEntityProfiles(selectedStock.value.code, queryDate, true),
+  ])
 }
 
 const loadAdvancedHistory = async (code: string) => {

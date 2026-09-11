@@ -159,7 +159,7 @@
               <div class="text-slate-500">现在能否用于交易</div><div :class="decisionGuide.actionable ? 'text-emerald-400' : 'text-amber-300'">{{ decisionGuide.actionable ? '通过门槛，可继续核对' : '不能，只能观察' }}</div>
             </div>
           </div>
-          <div v-if="latestForecast && !primaryForecast?.actionable" class="mb-2 bg-amber-950/40 border border-amber-500/40 text-amber-200 text-[11px] rounded-lg p-2">
+          <div v-if="latestForecast && !decisionGuide?.actionable" class="mb-2 bg-amber-950/40 border border-amber-500/40 text-amber-200 text-[11px] rounded-lg p-2">
             <span class="font-bold">{{ modelStateLabel }}：</span>{{ modelStateExplanation }} 页面仍给出低吸/高抛观察区方便理解，但在模型通过验证前只能用于观察，不能视为自动交易指令。
           </div>
 
@@ -680,13 +680,22 @@ const primaryForecast = computed(() => {
     || null
 })
 
-const modelStateLabel = computed(() => latestForecast.value?.modelStateLabel || ({
+const signalClock = ref(Date.now())
+const liveSignalApproved = computed(() => {
+  const forecast = latestForecast.value
+  const expires = Date.parse(forecast?.signalExpiresAt || '')
+  return forecast?.productionApproved === true && Number.isFinite(expires) && expires > signalClock.value
+})
+const modelStateLabel = computed(() => latestForecast.value?.modelState === 'champion' && !liveSignalApproved.value
+  ? '生产资格或数据时效待核验，仅供观察' : latestForecast.value?.modelStateLabel || ({
   untrained_bootstrap: '尚未完成训练，仅供观察',
   shadow: '影子验证中',
   champion: '已通过生产门槛',
 } as Record<string, string>)[latestForecast.value?.modelState] || '状态待确认')
 
-const modelStateExplanation = computed(() => latestForecast.value?.modelStateExplanation
+const modelStateExplanation = computed(() => latestForecast.value?.modelState === 'champion' && !liveSignalApproved.value
+  ? '生产资格或信号时效未通过当前核验，请等待新数据；历史的已通过状态不再作为本次交易依据。'
+  : latestForecast.value?.modelStateExplanation
   || (latestForecast.value?.modelState === 'untrained_bootstrap'
     ? '当前只是用于验证数据管道的初始规则权重，尚未用多年历史数据训练，也不能证明预测准确率。'
     : '当前模型仍需结合实时数据质量和风控状态使用。'))
@@ -734,7 +743,7 @@ const decisionGuide = computed(() => {
     buyHigh: low + (median - low) * 0.5,
     sellLow: median + (high - median) * 0.5,
     sellHigh: high,
-    actionable: Boolean(forecast.actionable),
+    actionable: liveSignalApproved.value && forecast.actionable === true,
     horizonMinutes: forecast.horizonMinutes,
   }
 })
@@ -1208,7 +1217,7 @@ const tacticalAdvice = computed(() => {
     }
   }
 
-  if (!primaryForecast.value?.actionable) {
+  if (!decisionGuide.value?.actionable) {
     return {
       title: '研究模式：当前不生成自动交易动作',
       content: '当前只是基础试运行模型，尚未通过多年样本训练、样本外验证和模拟成交检验。页面的低吸区、高抛区只是帮助观察价格位置，必须等待止跌或滞涨确认。',
@@ -1537,6 +1546,7 @@ const countdown = ref(AUTO_REFRESH_SECONDS)
 onMounted(() => {
   fetchStockList()
   timer = setInterval(() => {
+    signalClock.value = Date.now()
     if (!shouldAutoRefresh.value) {
       countdown.value = AUTO_REFRESH_SECONDS
       return // 不开盘/看历史数据时直接跳过，零刷新消耗！

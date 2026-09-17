@@ -32,6 +32,7 @@
         <el-form-item v-if="isRegister">
           <el-input
             v-model="form.username"
+            :maxlength="32"
             placeholder="昵称 / 战友姓名 (如: 战友-老李)"
             prefix-icon="User"
             class="custom-input"
@@ -40,6 +41,7 @@
         <el-form-item class="mt-4">
           <el-input
             v-model="form.phone"
+            :maxlength="32"
             placeholder="账号 / 手机号"
             prefix-icon="Iphone"
             class="custom-input"
@@ -49,13 +51,18 @@
           <el-input
             v-model="form.password"
             type="password"
-            placeholder="密码"
+            :placeholder="isRegister ? '至少 15 个字符的长口令' : '密码'"
+            :maxlength="72"
             prefix-icon="Lock"
             show-password
             class="custom-input"
           />
         </el-form-item>
 
+        <el-form-item v-if="isRegister">
+          <el-input v-model="form.invitationCode" type="password" :maxlength="256" placeholder="管理员邀请码（受邀注册时必填）" />
+        </el-form-item>
+        <p v-if="isRegister" class="text-xs text-slate-400">昵称可重复；手机号仅作为登录账号，当前不代表已经短信验证。密码至少 15 个字符，最多 72 个 UTF-8 字节。</p>
         <button
           type="submit"
           :disabled="loading"
@@ -73,6 +80,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import api from '../api'
+import { acceptSession } from '../api/session'
 
 const router = useRouter()
 const loading = ref(false)
@@ -81,6 +89,7 @@ const form = ref({
   username: '',
   phone: '',
   password: '',
+  invitationCode: '',
 })
 
 const handleSubmit = async () => {
@@ -91,15 +100,15 @@ const handleSubmit = async () => {
     return ElMessage.warning('请输入战友昵称/姓名')
   }
 
+  if (isRegister.value && ([...form.value.password].length < 15 || new TextEncoder().encode(form.value.password).length > 72)) return ElMessage.warning('密码至少 15 个字符，最多 72 个 UTF-8 字节')
   loading.value = true
   try {
     const url = isRegister.value ? '/auth/register' : '/auth/login'
     const res: any = await api.post(url, form.value)
-    localStorage.setItem('zeroquant_token', res.data.token)
-    localStorage.setItem('zeroquant_user', JSON.stringify(res.data.user))
+    acceptSession(res.data.token)
     ElMessage.success(isRegister.value ? '注册成功，欢迎加入 ZeroQuant 智脑做 T 平台！' : '欢迎进入 ZeroQuant 做 T 智脑平台！')
     router.replace('/')
-  } catch (err: any) {
+  } catch {
     // 错误在拦截器处理
   } finally {
     loading.value = false

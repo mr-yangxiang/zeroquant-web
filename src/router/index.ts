@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { ensureSession } from '../api/session'
 import Login from '../views/Login.vue'
 import Dashboard from '../views/Dashboard.vue'
 
@@ -19,9 +20,8 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach((to, _from, next) => {
-  const token = localStorage.getItem('zeroquant_token')
-  if (to.meta.requiresAuth && !token) {
+router.beforeEach(async (to, _from, next) => {
+  if (to.meta.requiresAuth && !await ensureSession()) {
     next('/login')
   } else {
     next()

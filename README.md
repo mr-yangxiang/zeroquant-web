@@ -19,3 +19,9 @@ npm run dev
 ```
 
 默认 API 前缀为 `/zeroquant/api/v1`，由部署层反向代理到 `zeroquant-server`。
+
+## 认证与渲染安全升级（待协调发布）
+
+访问令牌只保存在内存，刷新凭据通过 HttpOnly Cookie 管理；刷新页面先恢复会话，退出请求撤销服务端会话。需要配套 ZeroQuant 后端认证迁移 009、正确 HTTPS origin 与 Cookie 路径。旧 localStorage JWT 会清除并要求重新登录。
+
+聊天 Markdown 先转义 HTML。ECharts 已升级至 6.1.0，tooltip 使用 richText；运行 `npm test` 检查恶意标签转义及 Dashboard 实际图表配置的 SVG 渲染。此测试不是浏览器视觉或跨标签页 Cookie 验收。

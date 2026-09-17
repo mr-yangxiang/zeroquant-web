@@ -526,6 +526,7 @@
 
         <!-- 消息列表滚动区 -->
         <div ref="chatContainerRef" class="flex-1 overflow-y-auto p-4 space-y-4">
+          <el-button v-if="chatNextCursor" :loading="isLoadingChat" size="small" @click="fetchChatMessages(true)">加载更早消息</el-button>
           <div
             v-for="(msg, idx) in chatMessages"
             :key="idx"
@@ -604,7 +605,7 @@
           <textarea
             v-model="chatInput"
             @keydown.enter.prevent="handleSendChat"
-            :placeholder="isRecordingVoice ? '🎙️ 正在聆听您的语音指令（如：刚我3.85又买了1000股）...' : '输入指令、咨询做T策略，或语音录入...'"
+            :placeholder="isRecordingVoice ? '🎙️ 成交示例：我买了100股，成交价10元' : '输入指令、咨询做T策略，或语音录入...'"
             rows="2"
             class="flex-1 bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 resize-none"
           ></textarea>
@@ -630,6 +631,9 @@ import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 import timezone from 'dayjs/plugin/timezone'
 import api from '../api'
+import { formatMarkdownToHtml } from '../utils/markdown'
+import { clearSession, refreshSession, accessToken, sessionGeneration } from '../api/session'
+import { createChatOutbox, chatOwner, PendingChatRequestError } from '../api/chat-requests'
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -1013,7 +1017,7 @@ const renderChart = () => {
     const markPointsArr: any[] = []
     if (maxIdx >= 0) {
       markPointsArr.push({
-        name: '分时波段顶 (T0高抛)',
+        name: '已发生的盘中最高价（非预测卖点）',
         value: `分时顶 ¥${maxVal.toFixed(2)}`,
         xAxis: maxIdx,
         yAxis: maxVal,
@@ -1022,7 +1026,7 @@ const renderChart = () => {
     }
     if (minIdx >= 0) {
       markPointsArr.push({
-        name: '分时波段底 (T0低吸)',
+        name: '已发生的盘中最低价（非预测买点）',
         value: `分时底 ¥${minVal.toFixed(2)}`,
         xAxis: minIdx,
         yAxis: minVal,
@@ -1060,6 +1064,8 @@ const renderChart = () => {
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'axis',
+      // 富文本绘制不使用浏览器 HTML，外部名称不得作为 HTML 插入。
+      renderMode: 'richText',
       backgroundColor: 'rgba(15, 23, 42, 0.95)',
       borderColor: '#334155',
       textStyle: { color: '#f8fafc', fontSize: 11 },
@@ -1405,14 +1411,6 @@ const toggleVoiceRecording = () => {
   }
 }
 
-const formatMarkdownToHtml = (content: string) => {
-  if (!content) return ''
-  return content
-    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-cyan-300 font-bold">$1</strong>')
-    .replace(/^### (.*$)/gim, '<h3 class="text-xs font-black text-cyan-400 border-b border-slate-800 pb-1 my-1">$1</h3>')
-    .replace(/^- (.*$)/gim, '<div class="pl-2 flex items-start gap-1.5"><span class="text-cyan-400 font-bold">•</span><span>$1</span></div>')
-}
-
 const scrollChatToBottom = () => {
   nextTick(() => {
     if (chatContainerRef.value) {
@@ -1421,19 +1419,39 @@ const scrollChatToBottom = () => {
   })
 }
 
-const fetchChatMessages = async () => {
-  if (!selectedStock.value) return
+const chatNextCursor = ref<string | null>(null)
+const isLoadingChat = ref(false)
+let chatHistoryRequest = 0
+const fetchChatMessages = async (older = false) => {
+  if (!selectedStock.value || (older && (!chatNextCursor.value || isLoadingChat.value))) return
+  const stockCode = selectedStock.value.code
+  const generation = sessionGeneration()
+  const request = ++chatHistoryRequest
+  const cursor = older ? chatNextCursor.value : null
+  isLoadingChat.value = true
   try {
-    const res: any = await api.get(`/chat/messages?stockCode=${selectedStock.value.code}`)
-    chatMessages.value = res.data || []
-    scrollChatToBottom()
-  } catch (err: any) {
-    console.error('Fetch chat error:', err)
-  }
+    const res: any = await api.get(`/chat/messages?stockCode=${stockCode}&limit=50${cursor ? '&before=' + cursor : ''}`)
+    if (request !== chatHistoryRequest || generation !== sessionGeneration() || selectedStock.value?.code !== stockCode) return
+    const rows = res.data || []
+    chatMessages.value = older ? [...rows, ...chatMessages.value.filter(item => !rows.some((row: any) => row.id === item.id))] : rows
+    chatNextCursor.value = res.nextCursor ?? null
+    if (!older) scrollChatToBottom()
+  } catch {
+    if (request === chatHistoryRequest && generation === sessionGeneration() && selectedStock.value?.code === stockCode) ElMessage.error('历史消息加载失败，请重试')
+  } finally { if (request === chatHistoryRequest) isLoadingChat.value = false }
 }
 
 const openAiChat = () => {
   isChatOpen.value = true
+  chatMessages.value = []
+  chatNextCursor.value = null
+  chatInput.value = ''
+  try {
+    if (selectedStock.value) {
+      const pending = chatOutbox.pending(chatOwner(accessToken()), selectedStock.value.code)
+      if (pending) chatInput.value = pending.message
+    }
+  } catch (error) { ElMessage.error(error instanceof Error ? error.message : '无法恢复待确认消息') }
   fetchChatMessages()
 }
 
@@ -1469,75 +1487,99 @@ const handleQuickQuestion = async (q: string) => {
   await handleSendChat()
 }
 
+const chatOutbox = createChatOutbox(sessionStorage, () => crypto.randomUUID())
 const handleSendChat = async () => {
   if (!selectedStock.value || !chatInput.value.trim() || isSendingChat.value) return
+  const stockCode = selectedStock.value.code
   const userText = chatInput.value.trim()
-  chatInput.value = ''
-  
-  // 先把用户消息推入列表
-  chatMessages.value.push({
-    role: 'user',
-    content: userText,
-    createdAt: dayjs().tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm:ss')
-  })
-  scrollChatToBottom()
-
-  isSendingChat.value = true
+  const generation = sessionGeneration()
+  let owner: string
+  let request: ReturnType<typeof chatOutbox.prepare>
   try {
-    const res: any = await api.post('/chat/send', {
-      stockCode: selectedStock.value.code,
-      message: userText
-    })
-    
-    // 创建打字机消息占位
-    const assistantMsg = reactive({
-      id: res.data?.id || 0,
-      role: 'assistant',
-      content: res.data?.content || '',
-      displayContent: '',
-      isTyping: true,
-      createdAt: res.data?.createdAt || dayjs().tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm:ss')
-    })
-    chatMessages.value.push(assistantMsg)
-    scrollChatToBottom()
-    
-    // 启动拟真打字机逐字输出
-    typewriterEffect(assistantMsg, res.data?.content || '', () => {
-      // 输出完成后，如果包含交易操作，刷新左侧实盘仓位与战术卡片
-      if (res.data?.content && (res.data.content.includes('实盘操作已同步') || res.data.content.includes('实盘买入') || res.data.content.includes('实盘高抛') || res.data.content.includes('持仓底仓已同步'))) {
-        loadAdvancedHistory(selectedStock.value.code)
-      }
-    })
-  } catch (err: any) {
-    console.error('Chat error:', err)
-    ElMessage.error(err.response?.data?.message || err.message || '量化分析师推演超时，请稍后重试')
-  } finally {
-    isSendingChat.value = false
+    owner = chatOwner(accessToken())
+    request = chatOutbox.prepare(owner, stockCode, userText)
+  } catch (error) {
+    if (error instanceof PendingChatRequestError) chatInput.value = error.pending.message
+    ElMessage.error(error instanceof Error ? error.message : '无法保存请求编号，消息尚未发送')
+    return
   }
+  ++chatHistoryRequest // 忽略发送前启动的历史读取，防止旧列表覆盖新消息。
+  isLoadingChat.value = false
+  chatInput.value = ''
+  // 同一请求重试不再添加第二条本地用户消息。
+  if (!chatMessages.value.some(item => item.clientRequestId === request.requestId)) {
+    chatMessages.value.push({ role: 'user', content: userText, clientRequestId: request.requestId,
+      createdAt: dayjs().tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm:ss') })
+  }
+  scrollChatToBottom()
+  isSendingChat.value = true
+  let confirmed = false
+  try {
+    const res: any = await api.post('/chat/send', request)
+    confirmed = true
+    chatOutbox.complete(owner, stockCode, request.requestId)
+    if (generation !== sessionGeneration() || selectedStock.value?.code !== stockCode) return
+    const assistantMsg = reactive({ id: res.data?.id || 0, role: 'assistant', content: res.data?.content || '',
+      displayContent: '', isTyping: true, createdAt: res.data?.createdAt || dayjs().tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm:ss') })
+    if (!chatMessages.value.some(item => item.role === 'assistant' && item.id === assistantMsg.id)) {
+      chatMessages.value.push(assistantMsg)
+      scrollChatToBottom()
+      typewriterEffect(assistantMsg, assistantMsg.content, () => {})
+    }
+    // 使用明确协议字段，不再靠中文回复关键词判断是否发生持仓变更。
+    if (res.data?.tradeRecorded === true) await loadAdvancedHistory(stockCode)
+  } catch (error) {
+    if (generation === sessionGeneration() && selectedStock.value?.code === stockCode) {
+      if (confirmed) {
+        // 服务端已确认，之后的页面/存储错误绝不能让用户以新编号再录入一遍。
+        ElMessage.error('消息已确认，但页面更新失败，请刷新页面核对记录，不要重复录入')
+      } else {
+        const status = (error as { response?: { status?: number } })?.response?.status
+        // 明确的校验/权限/限流失败没有提交，可以修正正文。409 冲突与网络/500 不清除。
+        if (status && [400, 403, 404, 422, 429].includes(status)) {
+          try { chatOutbox.complete(owner, stockCode, request.requestId) } catch { /* 保留原编号更安全 */ }
+        }
+        chatInput.value = userText
+        ElMessage.error(status && [400, 403, 404, 422, 429].includes(status)
+          ? '消息未被接受，请按错误提示修正后再发送'
+          : '消息尚未确认，原文已恢复；再次发送会沿用原请求编号')
+      }
+    }
+  } finally { isSendingChat.value = false }
 }
 
 const handleClearChat = async () => {
   if (!selectedStock.value) return
+  const stockCode = selectedStock.value.code
+  const generation = sessionGeneration()
   try {
     await ElMessageBox.confirm('确定清空当前标的与量化分析师的历史推演对话吗？', '清空确认', {
-      confirmButtonText: '清空',
-      cancelButtonText: '取消',
-      type: 'warning'
+      confirmButtonText: '清空', cancelButtonText: '取消', type: 'warning'
     })
-    await api.delete(`/chat/messages?stockCode=${selectedStock.value.code}`)
+    if (generation !== sessionGeneration() || selectedStock.value?.code !== stockCode) return
+    await api.delete(`/chat/messages?stockCode=${stockCode}`)
+    if (generation !== sessionGeneration() || selectedStock.value?.code !== stockCode) return
+    ++chatHistoryRequest
+    isLoadingChat.value = false
     chatMessages.value = []
+    chatNextCursor.value = null
     ElMessage.success('对话记录已清空')
-    fetchChatMessages()
   } catch (err: any) {
-    if (err !== 'cancel') ElMessage.error('清空失败')
+    if (generation === sessionGeneration() && selectedStock.value?.code === stockCode && err !== 'cancel' && err !== 'close') ElMessage.error('清空失败')
   }
 }
 
-const handleLogout = () => {
-  localStorage.removeItem('zeroquant_token')
-  localStorage.removeItem('zeroquant_user')
-  ElMessage.success('已退出登录')
-  router.replace('/login')
+const handleLogout = async () => {
+  try {
+    // 主动刷新一次，确保过期访问令牌也可执行服务端会话撤销。
+    if (!await refreshSession()) throw new Error('无法确认服务端会话状态')
+    await api.post('/auth/logout', {})
+    clearSession()
+    ElMessage.success('已退出登录，会话已撤销')
+    router.replace('/login')
+  } catch {
+    ElMessage.error('退出未完成，请重试；不能仅清除页面就认为服务端凭据已撤销')
+  }
 }
 
 const AUTO_REFRESH_SECONDS = 60

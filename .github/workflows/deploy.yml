@@ -23,3 +23,6 @@ jobs:
 
     - name: Build web production bundle
       run: npm run build
+
+    - name: Run frontend regression tests
+      run: npm test

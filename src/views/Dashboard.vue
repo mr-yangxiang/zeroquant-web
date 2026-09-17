@@ -998,8 +998,8 @@ const renderChart = () => {
 
   // 5. 涨乐财富通同款：分时顶底 Peak/Trough 自动标记 (最高顶点与最低底点高亮 Badge)
   if (data.realHistories && data.realHistories.length > 0) {
-    const realPricesMap = new Map(data.realHistories.map((h: any) => [dayjs.utc(h.timestamp).tz('Asia/Shanghai').format('HH:mm'), h.realPrice]))
-    const realDataArr = timeCategories.map((t: string) => realPricesMap.get(t) || null)
+    const realPricesMap = new Map<string, number>(data.realHistories.map((h: { timestamp: string; realPrice: number }): [string, number] => [dayjs.utc(h.timestamp).tz('Asia/Shanghai').format('HH:mm'), h.realPrice]))
+    const realDataArr = timeCategories.map((t: string) => realPricesMap.get(t) ?? null)
 
     // 计算分时顶点与底点
     let maxVal = -1

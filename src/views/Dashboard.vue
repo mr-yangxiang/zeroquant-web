@@ -976,6 +976,7 @@ const renderChart = () => {
       name: '② 盘中动态预测（历史留档＋未来最新）',
       type: 'line',
       smooth: true,
+      connectNulls: true,
       data: rollingDataArr,
       itemStyle: { color: '#f59e0b' },
       lineStyle: { width: 1.5, type: 'dashed' },
@@ -999,7 +1000,16 @@ const renderChart = () => {
   // 5. 涨乐财富通同款：分时顶底 Peak/Trough 自动标记 (最高顶点与最低底点高亮 Badge)
   if (data.realHistories && data.realHistories.length > 0) {
     const realPricesMap = new Map<string, number>(data.realHistories.map((h: { timestamp: string; realPrice: number }): [string, number] => [dayjs.utc(h.timestamp).tz('Asia/Shanghai').format('HH:mm'), h.realPrice]))
-    const realDataArr = timeCategories.map((t: string) => realPricesMap.get(t) ?? null)
+    // 前向填充 (Forward Fill)，解决分钟采集秒级网络漂移导致的离散孤岛断点；同时保留未开盘未来区间的 null
+    let lastSeenPrice: number | null = null
+    const realDataArr = timeCategories.map((t: string) => {
+      const p = realPricesMap.get(t)
+      if (p !== undefined && p !== null) {
+        lastSeenPrice = p
+        return p
+      }
+      return lastSeenPrice
+    })
 
     // 计算分时顶点与底点
     let maxVal = -1
@@ -1038,6 +1048,7 @@ const renderChart = () => {
       name: isHist ? '真实历史开盘轨迹 (红实线)' : '④ 真实开盘轨迹 (红实线)',
       type: 'line',
       smooth: true,
+      connectNulls: true,
       data: realDataArr,
       itemStyle: { color: '#ef4444' },
       lineStyle: { width: 3, type: 'solid' },

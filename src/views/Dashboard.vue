@@ -973,12 +973,19 @@ const renderChart = () => {
 
   if (data.rollingPredictions && data.rollingPredictions.length > 0) {
     const rollingMap = new Map(data.rollingPredictions.map((r: any) => [r.targetTime, r.predictedPrice]))
-    const rollingDataArr = timeCategories.map((t: string) => rollingMap.get(t) || null)
+    const nowHHmm = dayjs().tz('Asia/Shanghai').format('HH:mm')
+    // 盘中动态预测（黄虚线）：
+    // 1. 过去已发生的历史时间段 (t < nowHHmm)：只显示实际留档的历史预测点，绝不向前平铺！
+    // 2. 当前及未来时间段 (t >= nowHHmm)：展示最新生成的动态前向重塑走势
+    const rollingDataArr = timeCategories.map((t: string) => {
+      const p = rollingMap.get(t)
+      return p !== undefined && p !== null ? p : null
+    })
     series.push({
       name: '② 盘中动态预测（历史留档＋未来最新）',
       type: 'line',
       smooth: true,
-      connectNulls: true,
+      connectNulls: false, // 严禁把断开的孤立点强行连成跨越全天的直线
       data: rollingDataArr,
       itemStyle: { color: '#f59e0b' },
       lineStyle: { width: 1.5, type: 'dashed' },
@@ -1002,9 +1009,14 @@ const renderChart = () => {
   // 5. 涨乐财富通同款：分时顶底 Peak/Trough 自动标记 (最高顶点与最低底点高亮 Badge)
   if (data.realHistories && data.realHistories.length > 0) {
     const realPricesMap = new Map<string, number>(data.realHistories.map((h: { timestamp: string; realPrice: number }): [string, number] => [dayjs.utc(h.timestamp).tz('Asia/Shanghai').format('HH:mm'), h.realPrice]))
-    // 前向填充 (Forward Fill)，解决分钟采集秒级网络漂移导致的离散孤岛断点；同时保留未开盘未来区间的 null
+    // 前向填充 (Forward Fill)，解决分钟采集秒级网络漂移导致的离散孤岛断点；未来未发生的时段必须严格留白 (null)
+    const nowHHmm = dayjs().tz('Asia/Shanghai').format('HH:mm')
     let lastSeenPrice: number | null = null
     const realDataArr = timeCategories.map((t: string) => {
+      // 如果当前是今天且遍历到的时间点大于当前系统实际分钟，未来时段绝不填充，严禁画一条水平死线！
+      if (!isHist && t > nowHHmm) {
+        return null
+      }
       const p = realPricesMap.get(t)
       if (p !== undefined && p !== null) {
         lastSeenPrice = p
@@ -1050,7 +1062,7 @@ const renderChart = () => {
       name: isHist ? '真实历史开盘轨迹 (红实线)' : '④ 真实开盘轨迹 (红实线)',
       type: 'line',
       smooth: true,
-      connectNulls: true,
+      connectNulls: false, // 严禁未来未发生的点被连线延伸
       data: realDataArr,
       itemStyle: { color: '#ef4444' },
       lineStyle: { width: 3, type: 'solid' },

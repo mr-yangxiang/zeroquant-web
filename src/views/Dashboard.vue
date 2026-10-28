@@ -897,7 +897,9 @@ const loadAdvancedHistory = async (code: string) => {
     ])
     if (forecastResult.status === 'fulfilled') {
       const forecastRes: any = forecastResult.value
-      latestForecast.value = forecastRes.data?.tradeDate === queryDate ? forecastRes.data : null
+      const rawDate = forecastRes.data?.tradeDate
+      const forecastDay = rawDate ? dayjs(rawDate).tz('Asia/Shanghai').format('YYYY-MM-DD') : null
+      latestForecast.value = forecastDay === queryDate ? forecastRes.data : null
     } else {
       latestForecast.value = null
     }
@@ -1122,25 +1124,24 @@ const renderChart = () => {
   chartInstance.setOption(option, true)
 }
 
-const todayDateStr = computed(() => dayjs().format('YYYY-MM-DD'))
-
+const todayDateStr = computed(() => dayjs().tz('Asia/Shanghai').format('YYYY-MM-DD'))
 const isHistoryView = computed(() => {
   return selectedDate.value < todayDateStr.value
 })
 
 const isPreMarketTime = computed(() => {
-  const now = new Date()
-  const day = now.getDay()
+  const now = dayjs().tz('Asia/Shanghai')
+  const day = now.day()
   if (day === 0 || day === 6) return false
-  const currentMins = now.getHours() * 60 + now.getMinutes()
+  const currentMins = now.hour() * 60 + now.minute()
   return currentMins >= 9 * 60 + 15 && currentMins < 9 * 60 + 30
 })
 
 const isTradingTime = computed(() => {
-  const now = new Date()
-  const day = now.getDay()
+  const now = dayjs().tz('Asia/Shanghai')
+  const day = now.day()
   if (day === 0 || day === 6) return false
-  const currentMins = now.getHours() * 60 + now.getMinutes()
+  const currentMins = now.hour() * 60 + now.minute()
   return (currentMins >= 9 * 60 + 30 && currentMins <= 11 * 60 + 30) || (currentMins >= 13 * 60 && currentMins <= 15 * 60)
 })
 
